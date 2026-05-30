@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NEON TETRIS · 霓虹俄罗斯方块</title>
+<style>
+  :root{
+    --bg:#0a0a12; --panel:rgba(255,255,255,.04); --panel-border:rgba(255,255,255,.08);
+    --text:#e8e8f0; --muted:#8b8ba7; --accent:#7c5cff;
+    --grid:rgba(255,255,255,.035);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+    background:radial-gradient(1200px 800px at 50% -10%, #16162a 0%, var(--bg) 55%);
+    color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh;
+    overflow:hidden;user-select:none;
+  }
+  /* 流动背景光晕 */
+  .aurora{position:fixed;inset:0;z-index:0;pointer-events:none;filter:blur(70px);opacity:.5}
+  .aurora span{position:absolute;border-radius:50%;mix-blend-mode:screen;animation:float 18s ease-in-out infinite}
+  .aurora span:nth-child(1){width:420px;height:420px;background:#5b3cff;top:-80px;left:8%;animation-delay:0s}
+  .aurora span:nth-child(2){width:380px;height:380px;background:#ff3c92;bottom:-60px;right:10%;animation-delay:-6s}
+  .aurora span:nth-child(3){width:320px;height:320px;background:#00d4ff;top:40%;left:46%;animation-delay:-12s}
+  @keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.12)}66%{transform:translate(-30px,25px) scale(.92)}}
+
+  .stage{position:relative;z-index:1;display:flex;gap:22px;align-items:flex-start;padding:20px;
+    transform-origin:center}
+  .side{display:flex;flex-direction:column;gap:16px;width:148px}
+  .side.left{align-items:flex-end}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:16px;padding:14px;
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);width:100%;
+    box-shadow:0 8px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .panel h3{font-size:11px;letter-spacing:2.5px;color:var(--muted);font-weight:600;
+    text-transform:uppercase;margin-bottom:10px;text-align:center}
+
+  .board-wrap{position:relative;border-radius:18px;overflow:hidden;
+    box-shadow:0 0 0 1px var(--panel-border), 0 24px 70px rgba(0,0,0,.6), 0 0 80px rgba(124,92,255,.12);
+    background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.25));}
+  #board{display:block;border-radius:18px}
+  #fx{position:absolute;inset:0;pointer-events:none}
+
+  /* 大数字统计 */
+  .stat{display:flex;flex-direction:column;gap:2px;margin-bottom:12px}
+  .stat:last-child{margin-bottom:0}
+  .stat .label{font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
+  .stat .value{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;
+    line-height:1.1;text-shadow:0 0 18px rgba(124,92,255,.5)}
+  .stat .value.flash{animation:val-pop .35s ease}
+  @keyframes val-pop{0%{transform:scale(1)}40%{transform:scale(1.18);color:#fff}100%{transform:scale(1)}}
+
+  .mini{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .mini canvas{display:block}
+  .next-list{display:flex;flex-direction:column;gap:6px;align-items:center}
+
+  /* 顶部标题 */
+  .title{position:absolute;top:-2px;left:50%;transform:translateX(-50%);
+    font-size:13px;letter-spacing:6px;font-weight:700;color:#fff;opacity:.0;pointer-events:none}
+
+  /* 居中弹层 */
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:14px;background:rgba(8,8,16,.78);backdrop-filter:blur(8px);
+    border-radius:18px;text-align:center;padding:28px;opacity:0;visibility:hidden;
+    transition:opacity .3s ease, visibility .3s;z-index:5}
+  .overlay.show{opacity:1;visibility:visible}
+  .overlay .big{font-size:34px;font-weight:800;letter-spacing:1px;
+    background:linear-gradient(90deg,#7c5cff,#ff5ca8,#00d4ff);-webkit-background-clip:text;
+    background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 18px rgba(124,92,255,.4))}
+  .overlay .sub{font-size:14px;color:var(--muted);line-height:1.9;max-width:280px}
+  .overlay kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+    border-radius:6px;padding:2px 8px;font-size:12px;font-family:inherit;color:#fff;margin:0 1px}
+  .btn{margin-top:6px;background:linear-gradient(90deg,#7c5cff,#9d6bff);color:#fff;border:none;
+    padding:12px 30px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;
+    letter-spacing:1px;box-shadow:0 8px 28px rgba(124,92,255,.45);transition:transform .15s, box-shadow .15s}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(124,92,255,.6)}
+  .btn:active{transform:translateY(0)}
+
+  /* 浮动提示文字(T-Spin / Tetris / Combo) */
+  .toast{position:absolute;left:50%;top:38%;transform:translate(-50%,0);pointer-events:none;
+    font-weight:800;text-align:center;z-index:4;opacity:0}
+  .toast.go{animation:toast 1.1s cubic-bezier(.2,.8,.2,1) forwards}
+  .toast .t1{font-size:30px;letter-spacing:1px;
+    background:linear-gradient(90deg,#ffd35c,#ff5ca8);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;filter:drop-shadow(0 0 12px rgba(255,92,168,.5))}
+  .toast .t2{font-size:15px;color:#fff;margin-top:2px;letter-spacing:2px}
+  @keyframes toast{0%{opacity:0;transform:translate(-50%,18px) scale(.8)}
+    18%{opacity:1;transform:translate(-50%,0) scale(1.05)}
+    30%{transform:translate(-50%,0) scale(1)}
+    80%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}
+
+  .hint{font-size:10.5px;color:var(--muted);line-height:1.85;letter-spacing:.3px}
+  .hint b{color:#cfcfe6;font-weight:600}
+  .pill{display:inline-block;background:rgba(255,255,255,.06);border:1px solid var(--panel-border);
+    border-radius:6px;padding:1px 6px;margin:1px;font-size:9.5px;color:#cfcfe6}
+
+  @media (max-width:720px){
+    .hint-panel{display:none}
+  }
+</style>
+</head>
+<body>
+  <div class="aurora"><span></span><span></span><span></span></div>
+
+  <div class="stage" id="stage">
+    <!-- 左侧:Hold + 数据 -->
+    <div class="side left">
+      <div class="panel">
+        <h3>Hold</h3>
+        <div class="mini"><canvas id="hold" width="116" height="84"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="stat"><span class="label">Score</span><span class="value" id="score">0</span></div>
+        <div class="stat"><span class="label">Lines</span><span class="value" id="lines">0</span></div>
+        <div class="stat"><span class="label">Level</span><span class="value" id="level">1</span></div>
+      </div>
+      <div class="panel hint-panel">
+        <h3>Stats</h3>
+        <div class="stat"><span class="label">Combo · Max</span><span class="value" id="maxcombo" style="font-size:20px">0</span></div>
+        <div class="stat" style="margin-bottom:0"><span class="label">Best</span><span class="value" id="best" style="font-size:20px">0</span></div>
+      </div>
+    </div>
+
+    <!-- 主棋盘 -->
+    <div class="board-wrap" id="boardWrap">
+      <canvas id="board"></canvas>
+      <canvas id="fx"></canvas>
+      <div class="toast" id="toast"><div class="t1" id="toast1"></div><div class="t2" id="toast2"></div></div>
+      <div class="overlay show" id="overlay">
+        <div class="big" id="ovBig">NEON TETRIS</div>
+        <div class="sub" id="ovSub"></div>
+        <button class="btn" id="ovBtn">开始游戏</button>
+      </div>
+    </div>
+
+    <!-- 右侧:Next + 操作说明 -->
+    <div class="side right">
+      <div class="panel">
+        <h3>Next</h3>
+        <div class="next-list" id="nextList"></div>
+      </div>
+      <div class="panel hint-panel">
+        <h3>操作</h3>
+        <div class="hint">
+          <b>← →</b> 移动 &nbsp; <b>↓</b> 软降<br>
+          <b>↑ / X</b> 顺时针 &nbsp; <b>Z / Ctrl</b> 逆时针<br>
+          <b>空格</b> 硬降 &nbsp; <b>C / Shift</b> 暂存<br>
+          <b>P</b> 暂停 &nbsp; <b>R</b> 重开<br>
+          <div style="margin-top:8px">
+            <span class="pill">T-Spin</span>
+            <span class="pill">Combo</span>
+            <span class="pill">B2B 奖励</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+(function(){
+  // ---------- 配置 ----------
+  const COLS = 10, ROWS = 20, HIDDEN = 2;          // 顶部 2 行缓冲(出生区)
+  const TOTAL_ROWS = ROWS + HIDDEN;
+  let CELL = 30;                                    // 实际像素由 fit 计算
+  const LOCK_DELAY = 500;                           // 锁定延迟(ms)
+  const MAX_LOCK_RESETS = 15;                       // 锁定重置上限,防无限旋转
+  const NEXT_COUNT = 5;
+
+  // 7 种方块的 SRS 形态(以 4x4 / 3x3 矩阵,值为旋转态下的格子)
+  // 颜色为霓虹风
+  const PIECES = {
+    I:{color:'#22d3ee', cells:[[[0,1],[1,1],[2,1],[3,1]],[[2,0],[2,1],[2,2],[2,3]],[[0,2],[1,2],[2,2],[3,2]],[[1,0],[1,1],[1,2],[1,3]]]},
+    J:{color:'#3b82f6', cells:[[[0,0],[0,1],[1,1],[2,1]],[[1,0],[2,0],[1,1],[1,2]],[[0,1],[1,1],[2,1],[2,2]],[[1,0],[1,1],[0,2],[1,2]]]},
+    L:{color:'#fb923c', cells:[[[2,0],[0,1],[1,1],[2,1]],[[1,0],[1,1],[1,2],[2,2]],[[0,1],[1,1],[2,1],[0,2]],[[0,0],[1,0],[1,1],[1,2]]]},
+    O:{color:'#fde047', cells:[[[1,0],[2,0],[1,1],[2,1]],[[1,0],[2,0],[1,1],[2,1]],[[1,0],[2,0],[1,1],[2,1]],[[1,0],[2,0],[1,1],[2,1]]]},
+    S:{color:'#4ade80', cells:[[[1,0],[2,0],[0,1],[1,1]],[[1,0],[1,1],[2,1],[2,2]],[[1,1],[2,1],[0,2],[1,2]],[[0,0],[0,1],[1,1],[1,2]]]},
+    T:{color:'#c084fc', cells:[[[1,0],[0,1],[1,1],[2,1]],[[1,0],[1,1],[2,1],[1,2]],[[0,1],[1,1],[2,1],[1,2]],[[1,0],[0,1],[1,1],[1,2]]]},
+    Z:{color:'#f87171', cells:[[[0,0],[1,0],[1,1],[2,1]],[[2,0],[1,1],[2,1],[1,2]],[[0,1],[1,1],[1,2],[2,2]],[[1,0],[0,1],[1,1],[0,2]]]},
+  };
+  const TYPES = Object.keys(PIECES);
+
+  // SRS 墙踢数据。JLSTZ 与 I 各自一套;O 不踢。
+  // 索引: 旋转状态 from->to 用 "0>1" 这类键
+  const KICKS_JLSTZ = {
+    '0>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+    '1>0':[[0,0],[1,0],[1,-1],[0,2],[1,2]],
+    '1>2':[[0,0],[1,0],[1,-1],[0,2],[1,2]],
+    '2>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+    '2>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+    '3>2':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+    '3>0':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+    '0>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+  };
+  const KICKS_I = {
+    '0>1':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],
+    '1>0':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],
+    '1>2':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],
+    '2>1':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],
+    '2>3':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],
+    '3>2':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],
+    '3>0':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],
+    '0>3':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],
+  };
+
+  // ---------- DOM ----------
+  const boardCv = document.getElementById('board');
+  const bctx = boardCv.getContext('2d');
+  const fxCv = document.getElementById('fx');
+  const fctx = fxCv.getContext('2d');
+  const holdCv = document.getElementById('hold');
+  const hctx = holdCv.getContext('2d');
+  const nextList = document.getElementById('nextList');
+  const elScore=document.getElementById('score'), elLines=document.getElementById('lines'),
+        elLevel=document.getElementById('level'), elMaxCombo=document.getElementById('maxcombo'),
+        elBest=document.getElementById('best');
+  const overlay=document.getElementById('overlay'), ovBig=document.getElementById('ovBig'),
+        ovSub=document.getElementById('ovSub'), ovBtn=document.getElementById('ovBtn');
+  const toast=document.getElementById('toast'), toast1=document.getElementById('toast1'), toast2=document.getElementById('toast2');
+  const boardWrap=document.getElementById('boardWrap');
+  const stage=document.getElementById('stage');
+
+  // ---------- 自适应尺寸 ----------
+  function fit(){
+    // 以视口高度为约束,给侧栏留出空间
+    const availH = Math.min(window.innerHeight-40, 760);
+    const availW = window.innerWidth-40;
+    let cell = Math.floor(availH/ROWS);
+    cell = Math.max(18, Math.min(cell, 38));
+    // 整体宽度若超出则缩放 stage
+    CELL = cell;
+    const bw = COLS*CELL, bh = ROWS*CELL;
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    for(const [cv,w,h] of [[boardCv,bw,bh],[fxCv,bw,bh]]){
+      cv.style.width=w+'px'; cv.style.height=h+'px';
+      cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+    }
+    bctx.setTransform(dpr,0,0,dpr,0,0);
+    fctx.setTransform(dpr,0,0,dpr,0,0);
+    // mini 画布 dpr:重置缓存标志以便 resize 时重新设置
+    holdCv._dprSet=false;
+    setupMini(holdCv,hctx);
+    // 缩放整个舞台以适配窄屏
+    const totalW = stage.scrollWidth;
+    const scale = Math.min(1, (window.innerWidth-16)/totalW);
+    stage.style.transform = scale<1 ? `scale(${scale})` : 'none';
+    draw();
+    drawHold();
+    drawNext();
+  }
+  function setupMini(cv,ctx){
+    const dpr=Math.min(window.devicePixelRatio||1,2);
+    const w=cv.clientWidth||parseInt(cv.style.width)||cv.width, h=cv.clientHeight||cv.height;
+    // 保持其属性宽高
+  }
+
+  // ---------- 游戏状态 ----------
+  let grid, cur, holdType, holdUsed, bag, queue, score, lines, level, combo, maxCombo, b2b;
+  let dropTimer, lockTimer, lockResets, lastTime, raf;
+  let state; // 'idle' | 'play' | 'pause' | 'over'
+  let lastActionWasRotation = false; // T-Spin 判定:最后一次成功操作是否为旋转
+  let best = +(localStorage.getItem('neon_tetris_best')||0);
+  elBest.textContent = best;
+
+  function newGrid(){
+    return Array.from({length:TOTAL_ROWS},()=>new Array(COLS).fill(null));
+  }
+
+  // 7-bag 随机
+  function refillBag(){
+    const b = TYPES.slice();
+    for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}
+    bag.push(...b);
+  }
+  function nextType(){
+    if(bag.length<=NEXT_COUNT) refillBag();
+    return bag.shift();
+  }
+  function spawn(type){
+    const t = type || queue.shift();
+    while(queue.length<NEXT_COUNT) queue.push(nextType());
+    drawNext();
+    const piece = {
+      type:t, rot:0, x: t==='I'||t==='O'?3:3, y:0, lastKick:0,
+    };
+    // 让方块从隐藏区顶部出生:y 以 TOTAL_ROWS 坐标系
+    piece.y = 0;
+    return piece;
+  }
+
+  function cellsOf(p, rot=p.rot){
+    const def = PIECES[p.type];
+    return def.cells[rot].map(([cx,cy])=>[p.x+cx, p.y+cy]);
+  }
+  function valid(p, rot=p.rot, ox=0, oy=0){
+    for(const [cx,cy] of PIECES[p.type].cells[rot]){
+      const x=p.x+cx+ox, y=p.y+cy+oy;
+      if(x<0||x>=COLS||y>=TOTAL_ROWS) return false;
+      if(y>=0 && grid[y][x]) return false;
+    }
+    return true;
+  }
+
+  // ---------- 操作 ----------
+  function tryMove(dx,dy){
+    if(state!=='play') return false; // 状态守卫:仅 play 时移动
+    if(valid(cur,cur.rot,dx,dy)){ cur.x+=dx; cur.y+=dy; cur.lastKick=0; lastActionWasRotation=false; onMoved(dy!==0&&dx===0); return true; }
+    return false;
+  }
+  function rotate(dir){ // dir: +1 顺, -1 逆
+    if(state!=='play') return; // 状态守卫:仅 play 时旋转
+    if(cur.type==='O'){ return; }
+    const from=cur.rot, to=(cur.rot+dir+4)%4;
+    const table = cur.type==='I'?KICKS_I:KICKS_JLSTZ;
+    const kicks = table[`${from}>${to}`]||[[0,0]];
+    for(let i=0;i<kicks.length;i++){
+      const [kx,ky]=kicks[i];
+      // SRS y 向上为正,这里屏幕 y 向下,故取反
+      if(valid(cur,to,kx,-ky)){
+        cur.x+=kx; cur.y+=-ky; cur.rot=to; cur.lastKick=i;
+        lastActionWasRotation=true; // T-Spin 门控:标记旋转成功
+        onMoved(true);
+        return;
+      }
+    }
+  }
+  function onMoved(rotatedOrSoft){
+    // 若落在地面上,刷新锁定延迟(有上限)
+    if(!valid(cur,cur.rot,0,1)){
+      if(lockTimer!==null && lockResets<MAX_LOCK_RESETS){
+        clearTimeout(lockTimer); lockTimer=null;
+        armLock();
+        lockResets++;
+      }
+    } else {
+      // 离开地面,取消锁定
+      if(lockTimer!==null){clearTimeout(lockTimer);lockTimer=null;}
+    }
+    draw();
+  }
+  function armLock(){
+    if(lockTimer!==null) return;
+    lockTimer=setTimeout(()=>{ lockTimer=null; lockPiece(); }, LOCK_DELAY);
+  }
+
+  function softDrop(){
+    if(state!=='play') return; // 状态守卫:仅 play 时软降
+    if(tryMove(0,1)){ score+=1; updateHUD(); }
+  }
+  function hardDrop(){
+    let d=0;
+    while(valid(cur,cur.rot,0,1)){ cur.y++; d++; }
+    score += d*2; updateHUD();
+    spawnLockShake(d);
+    lockPiece(true);
+  }
+
+  function holdSwap(){
+    if(holdUsed) return;
+    holdUsed=true;
+    if(lockTimer!==null){clearTimeout(lockTimer);lockTimer=null;}
+    const t=cur.type;
+    if(holdType===null){ holdType=t; cur=spawn(); }
+    else { const h=holdType; holdType=t; cur=spawn(h); }
+    lockResets=0;
+    if(!valid(cur)){ gameOver(); return; }
+    resetDrop(); draw(); drawHold();
+  }
+
+  // ---------- 锁定 / 消行 ----------
+  function isTSpin(){
+    if(cur.type!=='T') return 0;
+    if(!lastActionWasRotation) return 0; // T-Spin 前置条件:最后一次操作必须是旋转
+    // 3-corner 规则:T 的中心四角中,被占据(或墙)>=3 即 T-Spin
+    // T 中心点在其 3x3 的 (1,1)
+    const cx=cur.x+1, cy=cur.y+1;
+    const corners=[[cx-1,cy-1],[cx+1,cy-1],[cx-1,cy+1],[cx+1,cy+1]];
+    let filled=0, frontFilled=0;
+    // 前两角随朝向(rot)变化,用于区分 mini
+    const frontIdx={0:[0,1],1:[1,3],2:[2,3],3:[0,2]}[cur.rot];
+    corners.forEach(([x,y],i)=>{
+      const occ = (x<0||x>=COLS||y>=TOTAL_ROWS) || (y>=0&&grid[y][x]);
+      if(occ){ filled++; if(frontIdx.includes(i)) frontFilled++; }
+    });
+    if(filled>=3){
+      // 若由墙踢的较后选项触发,通常算 full;前角满算 full,否则 mini
+      if(frontFilled>=2 || cur.lastKick>=4) return 2; // full T-spin
+      return 1; // mini T-spin
+    }
+    return 0;
+  }
+
+  function lockPiece(fromHard){
+    // 真正写入网格前先判 T-Spin(基于当前位置且无法下移)
+    if(!fromHard && valid(cur,cur.rot,0,1)){
+      // 还能下落却触发锁定(不应发生),保险:重置
+      resetDrop(); return;
+    }
+    const tspin = isTSpin();
+    let topOut=true;
+    for(const [x,y] of cellsOf(cur)){
+      if(y>=0){ grid[y][x]=PIECES[cur.type].color; topOut=false; }
+    }
+    // 全部格子都在隐藏区上方 => 顶出(lock-out)
+    let anyVisible=false;
+    for(const [x,y] of cellsOf(cur)) if(y>=HIDDEN) anyVisible=true;
+    if(!anyVisible){ gameOver(); return; } // lock-out:方块完全锁定在隐藏区,立即判负
+
+    clearLines(tspin);
+
+    // 出新块
+    holdUsed=false;
+    cur=spawn();
+    lockResets=0;
+    lastActionWasRotation=false; // 重置旋转标志
+    if(!valid(cur)){ gameOver(); return; }
+    resetDrop(); draw();
+  }
+
+  function clearLines(tspin){
+    const full=[];
+    for(let y=0;y<TOTAL_ROWS;y++){
+      if(grid[y].every(c=>c)) full.push(y);
+    }
+    const n=full.length;
+
+    // ----- 计分 -----
+    if(n>0||tspin){
+      let base=0, label='', isHard=false;
+      if(tspin){
+        isHard=true;
+        const names=['','SINGLE','DOUBLE','TRIPLE'];
+        if(tspin===1){ base=[100,200,400][n]||100; label='T-SPIN MINI'; }
+        else { base=[400,800,1200,1600][n]; label='T-SPIN '+(names[n]||''); }
+      } else {
+        base=[0,100,300,500,800][n];
+        if(n===4){ label='TETRIS'; isHard=true; }
+        else label=['','SINGLE','DOUBLE','TRIPLE'][n];
+      }
+      // Back-to-Back(连续 Tetris/T-Spin)
+      let mult=1;
+      if(n>0){
+        if(isHard){ if(b2b) mult=1.5; b2b=true; }
+        else b2b=false;
+      }
+      // Combo
+      if(n>0){ combo++; } else { /* 仅 t-spin 无消行不计 combo,但保持 */ }
+      const comboBonus = combo>0 ? 50*combo*level : 0;
+      const gained = Math.floor(base*level*mult) + (n>0?comboBonus:0);
+      score += gained;
+      lines += n;
+      maxCombo=Math.max(maxCombo,combo);
+
+      // 等级:每 10 行升级
+      const newLevel = Math.floor(lines/10)+1;
+      if(newLevel!==level){ level=newLevel; refreshTheme(); }
+
+      // 提示文字
+      if(label){
+        let sub='';
+        if(mult>1.5||(b2b&&isHard&&mult>1)) sub='BACK-TO-BACK';
+        if(mult>1) sub='BACK-TO-BACK';
+        if(combo>0) sub=(sub?sub+' · ':'')+`${combo+1} COMBO`; // combo 显示为实际连段数(combo+1)
+        showToast(label, sub);
+      } else if(combo>0){
+        showToast(`${combo+1} COMBO`, '');
+      }
+      updateHUD(true);
+    } else {
+      combo=-1; // 将在末尾归零
+    }
+    if(n===0) combo=-1; // Combo 归零为 -1(Guideline 标准)
+
+    // ----- 动画 + 实际删除 -----
+    if(n>0){
+      animateClear(full);
+      // 从网格删除
+      const kept=[];
+      for(let y=0;y<TOTAL_ROWS;y++) if(!full.includes(y)) kept.push(grid[y]);
+      while(kept.length<TOTAL_ROWS) kept.unshift(new Array(COLS).fill(null));
+      grid=kept;
+      // 震动
+      shake(n>=4?16:n*4);
+    }
+  }
+
+  // ---------- 主题随等级流动 ----------
+  function refreshTheme(){
+    const hue=(250 + level*24)%360;
+    const c=`hsl(${hue} 90% 65%)`;
+    document.documentElement.style.setProperty('--accent', c);
+    boardWrap.style.boxShadow=`0 0 0 1px var(--panel-border),0 24px 70px rgba(0,0,0,.6),0 0 90px hsla(${hue} 90% 60% / .22)`;
+  }
+
+  // ---------- 渲染 ----------
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+  }
+  function drawCell(ctx,gx,gy,color,cell,alpha=1,scale=1){
+    const pad=Math.max(1,cell*0.06);
+    let size=cell-pad*2;
+    let x=gx*cell+pad, y=gy*cell+pad;
+    if(scale!==1){ const ds=size*(1-scale)/2; x+=ds; y+=ds; size*=scale; }
+    ctx.globalAlpha=alpha;
+    // 主体渐变
+    const g=ctx.createLinearGradient(x,y,x,y+size);
+    g.addColorStop(0,shade(color,1.35));
+    g.addColorStop(1,shade(color,0.82));
+    ctx.fillStyle=g;
+    roundRect(ctx,x,y,size,size,Math.max(2,cell*0.16));ctx.fill();
+    // 高光
+    ctx.globalAlpha=alpha*0.5;
+    ctx.fillStyle='rgba(255,255,255,.55)';
+    roundRect(ctx,x+size*0.14,y+size*0.12,size*0.5,size*0.22,size*0.1);ctx.fill();
+    // 内描边
+    ctx.globalAlpha=alpha*0.35;
+    ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1;
+    roundRect(ctx,x+0.5,y+0.5,size-1,size-1,Math.max(2,cell*0.16));ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+  function shade(hex,f){
+    // 支持 hsl 与 hex
+    if(hex.startsWith('hsl')) return hex;
+    const c=hex.replace('#','');
+    let r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);
+    r=Math.min(255,Math.round(r*f));g=Math.min(255,Math.round(g*f));b=Math.min(255,Math.round(b*f));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // 整块外轮廓:边界追踪得到连续顶点环(已去共线),供「虚影」描边
+  function ghostOutline(cells){
+    const key=(x,y)=>x+','+y;
+    const has=new Set(cells.map(([x,y])=>key(x,y)));
+    const edges=new Map(); // 起点->终点;顺时针:内部恒在行进方向右侧
+    for(const [x,y] of cells){
+      if(!has.has(key(x,y-1))) edges.set(key(x,y),     [x+1,y]);   // 顶 A→B
+      if(!has.has(key(x+1,y))) edges.set(key(x+1,y),   [x+1,y+1]); // 右 B→C
+      if(!has.has(key(x,y+1))) edges.set(key(x+1,y+1), [x,y+1]);   // 底 C→D
+      if(!has.has(key(x-1,y))) edges.set(key(x,y+1),   [x,y]);     // 左 D→A
+    }
+    const rings=[]; const visited=new Set();
+    for(const startK of edges.keys()){
+      if(visited.has(startK)) continue;
+      const poly=[]; let k=startK;
+      while(k && !visited.has(k)){
+        visited.add(k);
+        const [px,py]=k.split(',').map(Number); poly.push([px,py]);
+        const nxt=edges.get(k); if(!nxt) break; k=key(nxt[0],nxt[1]);
+      }
+      if(poly.length<3) continue;
+      const v=[]; const L=poly.length;       // 去共线点(轴对齐:连续同向)
+      for(let i=0;i<L;i++){
+        const a=poly[(i-1+L)%L], b=poly[i], c=poly[(i+1)%L];
+        const col=(a[0]===b[0]&&b[0]===c[0])||(a[1]===b[1]&&b[1]===c[1]);
+        if(!col) v.push(b);
+      }
+      if(v.length>=3) rings.push(v);
+    }
+    return rings;
+  }
+  // 落点「虚影」:整块连续圆角轮廓 + 淡填充(非实体块),无逐格接缝
+  function drawGhost(ctx,cells,color,cell){
+    if(!cells.length) return;
+    ctx.save();
+    ctx.globalAlpha=0.12; ctx.fillStyle=color;       // 淡填充(整块无缝)
+    for(const [x,y] of cells) ctx.fillRect(x*cell,y*cell,cell,cell);
+    const line=shade(color,1.3);                     // 圆角轮廓:glow 粗描 + 亮细描
+    const lw=Math.max(1.5,cell*0.085), r=Math.max(2,cell*0.16);
+    ctx.lineJoin='round'; ctx.lineCap='round'; ctx.strokeStyle=line;
+    for(const v of ghostOutline(cells)){
+      const P=v.map(([px,py])=>[px*cell,py*cell]); const n=P.length;
+      const mid=[(P[0][0]+P[1][0])/2,(P[0][1]+P[1][1])/2];
+      for(let pass=0;pass<2;pass++){
+        ctx.beginPath(); ctx.moveTo(mid[0],mid[1]);
+        for(let i=1;i<=n;i++){ const c1=P[i%n], c2=P[(i+1)%n]; ctx.arcTo(c1[0],c1[1],c2[0],c2[1],r); }
+        ctx.closePath();
+        if(pass===0){ ctx.globalAlpha=0.16; ctx.lineWidth=lw+Math.max(2,cell*0.10); }
+        else        { ctx.globalAlpha=0.95; ctx.lineWidth=lw; }
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    ctx.globalAlpha=1; ctx.setLineDash([]);
+  }
+
+  function draw(){
+    const W=COLS*CELL, H=ROWS*CELL;
+    bctx.clearRect(0,0,W,H);
+    // 背景网格
+    bctx.strokeStyle='var(--grid)';
+    bctx.lineWidth=1;
+    bctx.strokeStyle='rgba(255,255,255,.04)';
+    for(let x=0;x<=COLS;x++){bctx.beginPath();bctx.moveTo(x*CELL,0);bctx.lineTo(x*CELL,H);bctx.stroke();}
+    for(let y=0;y<=ROWS;y++){bctx.beginPath();bctx.moveTo(0,y*CELL);bctx.lineTo(W,y*CELL);bctx.stroke();}
+
+    // 已落定的格子(注意隐藏区偏移)
+    for(let y=HIDDEN;y<TOTAL_ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        if(grid[y][x]) drawCell(bctx,x,y-HIDDEN,grid[y][x],CELL);
+      }
+    }
+
+    if(state==='play'||state==='pause'){
+      // 幽灵(整块圆角轮廓虚影,非实体)
+      let gy=0;
+      while(valid(cur,cur.rot,0,gy+1)) gy++;
+      if(gy>0){
+        const gcells=[];
+        for(const [x,y] of cellsOf(cur)){
+          const ry=y+gy-HIDDEN;
+          if(ry>=0) gcells.push([x,ry]);
+        }
+        drawGhost(bctx, gcells, PIECES[cur.type].color, CELL);
+      }
+      // 当前块
+      for(const [x,y] of cellsOf(cur)){
+        const ry=y-HIDDEN;
+        if(ry>=-HIDDEN) drawCell(bctx,x,ry,PIECES[cur.type].color,CELL, ry<0?0.0:1);
+      }
+    }
+  }
+
+  function drawMiniPiece(ctx,cv,type,cell){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    if(!type) return;
+    const def=PIECES[type];
+    const cs=def.cells[0];
+    let minX=9,minY=9,maxX=0,maxY=0;
+    cs.forEach(([x,y])=>{minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);});
+    const w=(maxX-minX+1), h=(maxY-minY+1);
+    const ox=(cv.width/(window.devicePixelRatio||1)/cell - w)/2 - minX;
+    const oy=(cv.height/(window.devicePixelRatio||1)/cell - h)/2 - minY;
+    cs.forEach(([x,y])=>drawCell(ctx,x+ox,y+oy,def.color,cell));
+  }
+  function drawHold(){
+    setMiniDPR(holdCv,hctx);
+    drawMiniPiece(hctx,holdCv,holdType, Math.floor((parseInt(holdCv.style.width)||116)/4.2));
+    if(holdUsed){
+      // Hold 已用:绘制半透明黑色遮罩使方块变暗(使用 CSS 像素尺寸)
+      const w = parseInt(holdCv.style.width)||116;
+      const h = parseInt(holdCv.style.height)||84;
+      hctx.globalAlpha=0.35;
+      hctx.fillStyle='#000';
+      hctx.fillRect(0,0,w,h);
+      hctx.globalAlpha=1; // 复位 alpha
+    }
+  }
+  function setMiniDPR(cv,ctx){
+    if(cv._dprSet) return;
+    const dpr=Math.min(window.devicePixelRatio||1,2);
+    const w=cv.width, h=cv.height;
+    cv.style.width=w+'px'; cv.style.height=h+'px';
+    cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    cv._dprSet=true;
+  }
+  function drawNext(){
+    nextList.innerHTML='';
+    for(let i=0;i<NEXT_COUNT;i++){
+      const t=queue[i]; if(!t) continue;
+      const cv=document.createElement('canvas');
+      cv.width=110; cv.height= i===0?66:54;
+      const ctx=cv.getContext('2d');
+      setMiniDPR(cv,ctx);
+      drawMiniPiece(ctx,cv,t, Math.floor((110)/4.4) * (i===0?1.05:0.9));
+      cv.style.opacity = i===0?1:0.55+(0.0);
+      nextList.appendChild(cv);
+    }
+  }
+
+  // ---------- 粒子 / 特效 ----------
+  let particles=[];
+  function animateClear(rows){
+    const W=COLS*CELL;
+    rows.forEach(ry=>{
+      const sy=(ry-HIDDEN)*CELL;
+      for(let x=0;x<COLS;x++){
+        const color=grid[ry][x]||'#fff';
+        for(let k=0;k<3;k++){
+          particles.push({
+            x:x*CELL+CELL/2, y:sy+CELL/2,
+            vx:(Math.random()-0.5)*6, vy:(Math.random()-1.2)*6,
+            life:1, color, size:CELL*0.28*Math.random()+3
+          });
+        }
+      }
+      // 白色闪光行
+      particles.push({flash:true, y:sy, life:1});
+    });
+  }
+  function updateParticles(dt){
+    const W=COLS*CELL,H=ROWS*CELL;
+    fctx.clearRect(0,0,W,H);
+    if(particles.length===0) return;
+    for(const p of particles){
+      if(p.flash){
+        p.life-=dt*3.2;
+        if(p.life>0){
+          fctx.globalAlpha=Math.max(0,p.life);
+          fctx.fillStyle='#fff';
+          fctx.fillRect(0,p.y,W,CELL);
+        }
+        continue;
+      }
+      p.life-=dt*1.6;
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.35; p.vx*=0.99;
+      if(p.life>0){
+        fctx.globalAlpha=Math.max(0,p.life);
+        fctx.fillStyle=p.color;
+        roundRect(fctx,p.x,p.y,p.size,p.size,2);fctx.fill();
+      }
+    }
+    fctx.globalAlpha=1;
+    particles=particles.filter(p=>p.life>0);
+  }
+
+  function shake(px){
+    boardWrap.animate(
+      [{transform:'translate(0,0)'},
+       {transform:`translate(${px*0.5}px,${px*0.4}px)`},
+       {transform:`translate(${-px*0.4}px,${px*0.2}px)`},
+       {transform:'translate(0,0)'}],
+      {duration:200, easing:'ease-out'}
+    );
+  }
+  function spawnLockShake(d){ if(d>0) shake(Math.min(8,d)); }
+
+  let toastTimer=null;
+  function showToast(t1,t2){
+    toast1.textContent=t1; toast2.textContent=t2||'';
+    toast.classList.remove('go'); void toast.offsetWidth; toast.classList.add('go');
+  }
+
+  // ---------- HUD ----------
+  function updateHUD(flash){
+    elScore.textContent=score.toLocaleString();
+    elLines.textContent=lines;
+    elLevel.textContent=level;
+    elMaxCombo.textContent=Math.max(0,maxCombo);
+    if(flash){ elScore.classList.remove('flash'); void elScore.offsetWidth; elScore.classList.add('flash'); }
+    if(score>best){ best=score; elBest.textContent=best; localStorage.setItem('neon_tetris_best',best); }
+  }
+
+  // ---------- 主循环 ----------
+  function dropInterval(){
+    // 经典曲线(类 Tetris Guideline),随等级加速
+    const t=Math.pow(0.8-((level-1)*0.007),(level-1));
+    return Math.max(0.02, t)*1000;
+  }
+  function resetDrop(){ dropTimer=0; }
+  function loop(now){
+    raf=requestAnimationFrame(loop);
+    const dt=Math.min(0.05,(now-lastTime)/1000)||0; lastTime=now;
+    if(state==='play'){
+      dropTimer+=dt*1000;
+      const intv=dropInterval();
+      while(dropTimer>=intv){
+        dropTimer-=intv;
+        if(valid(cur,cur.rot,0,1)){ cur.y++; }
+        else { armLock(); break; }
+      }
+      draw();
+    }
+    updateParticles(dt);
+  }
+
+  // ---------- 流程控制 ----------
+  function startGame(){
+    grid=newGrid(); bag=[]; queue=[];
+    refillBag();
+    for(let i=0;i<NEXT_COUNT;i++) queue.push(nextType());
+    holdType=null; holdUsed=false;
+    score=0; lines=0; level=1; combo=-1; maxCombo=0; b2b=false; // combo 初值 -1(Guideline 标准)
+    particles=[];
+    if(lockTimer!==null){clearTimeout(lockTimer);lockTimer=null;}
+    if(softTimer!==null){clearInterval(softTimer);softTimer=null;} // 清除软降定时器
+    stopDAS(); // 清除 DAS/ARR 定时器
+    lockResets=0;
+    cur=spawn();
+    lastActionWasRotation=false; // 重置旋转标志
+    refreshTheme();
+    resetDrop(); lastTime=performance.now();
+    state='play';
+    overlay.classList.remove('show');
+    updateHUD(); drawHold(); drawNext(); draw();
+  }
+  function togglePause(){
+    if(state==='play'){
+      state='pause';
+      // 暂停时清除所有输入定时器,防止方块在暂停期间继续移动/锁定
+      if(lockTimer!==null){clearTimeout(lockTimer);lockTimer=null;}
+      if(softTimer!==null){clearInterval(softTimer);softTimer=null;}
+      stopDAS();
+      showOverlay('已暂停','按 <kbd>P</kbd> 继续','继续');
+    }
+    else if(state==='pause'){ state='play'; overlay.classList.remove('show'); lastTime=performance.now(); }
+  }
+  function gameOver(){
+    state='over';
+    if(lockTimer!==null){clearTimeout(lockTimer);lockTimer=null;}
+    if(softTimer!==null){clearInterval(softTimer);softTimer=null;} // 清除软降定时器
+    stopDAS(); // 清除 DAS/ARR 定时器
+    const isBest = score>=best;
+    showOverlay('GAME OVER',
+      `得分 <b style="color:#fff">${score.toLocaleString()}</b> · 消除 ${lines} 行 · 等级 ${level}` +
+      (isBest&&score>0?'<br><span style="color:#ffd35c">★ 新纪录!</span>':`<br>最高纪录 ${best.toLocaleString()}`),
+      '再来一局');
+  }
+  function showOverlay(big,sub,btn){
+    ovBig.textContent=big; ovSub.innerHTML=sub; ovBtn.textContent=btn;
+    overlay.classList.add('show');
+  }
+
+  // ---------- 输入 ----------
+  const repeatKeys={};
+  let dasTimer=null, arrTimer=null, dasDir=0;
+  const DAS=140, ARR=40;
+  function startDAS(dir){
+    stopDAS();
+    dasDir=dir;
+    tryMove(dir,0);
+    dasTimer=setTimeout(()=>{
+      arrTimer=setInterval(()=>tryMove(dasDir,0),ARR);
+    },DAS);
+  }
+  function stopDAS(){ if(dasTimer)clearTimeout(dasTimer); if(arrTimer)clearInterval(arrTimer); dasTimer=arrTimer=null; }
+
+  let softTimer=null;
+  document.addEventListener('keydown',(e)=>{
+    const k=e.key;
+    // 全局键
+    if(k==='p'||k==='P'){ if(state==='play'||state==='pause'){e.preventDefault();togglePause();} return; }
+    if(k==='r'||k==='R'){ e.preventDefault(); startGame(); return; }
+    if(state!=='play') {
+      // 非 play 状态:拦截所有游戏相关按键的默认行为
+      if((k===' '||k==='Enter') && state!=='play'){ e.preventDefault(); if(state==='idle'||state==='over') startGame(); }
+      else if(k.startsWith('Arrow')){ e.preventDefault(); } // 拦截方向键默认滚动
+      return;
+    }
+    if(e.repeat && !(k==='ArrowDown')) { e.preventDefault(); return; }
+    switch(k){
+      case 'ArrowLeft': e.preventDefault(); startDAS(-1); break;
+      case 'ArrowRight': e.preventDefault(); startDAS(1); break;
+      case 'ArrowDown': e.preventDefault();
+        if(!softTimer){ softDrop(); softTimer=setInterval(softDrop,40); } break;
+      case 'ArrowUp': case 'x': case 'X': e.preventDefault(); rotate(1); break;
+      case 'z': case 'Z': case 'Control': e.preventDefault(); rotate(-1); break;
+      case ' ': e.preventDefault(); hardDrop(); break;
+      case 'c': case 'C': case 'Shift': e.preventDefault(); holdSwap(); break;
+    }
+  });
+  document.addEventListener('keyup',(e)=>{
+    const k=e.key;
+    if(k==='ArrowLeft'||k==='ArrowRight') stopDAS();
+    if(k==='ArrowDown'){ if(softTimer){clearInterval(softTimer);softTimer=null;} }
+  });
+
+  // ---------- 触屏支持 ----------
+  let touchStart=null, touchMoved=false, lastTap=0;
+  boardWrap.addEventListener('touchstart',(e)=>{
+    if(state!=='play'){ return; }
+    const t=e.touches[0];
+    touchStart={x:t.clientX,y:t.clientY,t:performance.now(),px:t.clientX,py:t.clientY};
+    touchMoved=false;
+  },{passive:true});
+  boardWrap.addEventListener('touchmove',(e)=>{
+    if(!touchStart||state!=='play') return;
+    const t=e.touches[0];
+    const dx=t.clientX-touchStart.px, dy=t.clientY-touchStart.py;
+    const th=CELL*0.9;
+    if(Math.abs(dx)>th && Math.abs(dx)>Math.abs(dy)){
+      tryMove(dx>0?1:-1,0); touchStart.px=t.clientX; touchMoved=true;
+    } else if(dy>th){
+      softDrop(); touchStart.py=t.clientY; touchMoved=true;
+    }
+  },{passive:true});
+  boardWrap.addEventListener('touchend',(e)=>{
+    if(!touchStart||state!=='play'){touchStart=null;return;}
+    const dt=performance.now()-touchStart.t;
+    const t=e.changedTouches[0];
+    const dy=t.clientY-touchStart.y, dx=t.clientX-touchStart.x;
+    if(!touchMoved && dt<250){
+      // 向下快速大幅滑 => 硬降
+      if(dy>CELL*4){ hardDrop(); }
+      else { rotate(1); } // 点击 = 旋转
+    } else if(dy>CELL*5 && Math.abs(dx)<CELL*2){
+      hardDrop();
+    }
+    touchStart=null;
+  },{passive:true});
+
+  // ---------- 启动 ----------
+  ovBtn.addEventListener('click',()=>{ if(state==='pause'){togglePause();} else startGame(); });
+  window.addEventListener('resize',fit);
+  // 初始
+  state='idle';
+  grid=newGrid(); bag=[]; queue=[]; refillBag();
+  for(let i=0;i<NEXT_COUNT;i++) queue.push(nextType());
+  holdType=null;
+  ovSub.innerHTML='经典玩法 × 创意机制<br><span style="font-size:12px">SRS 旋转 · 7-bag · T-Spin · Combo · Hold</span><br><br>'+
+    '<span style="font-size:12px">键盘:<kbd>←→</kbd><kbd>↓</kbd> 移动 · <kbd>↑</kbd> 旋转 · <kbd>空格</kbd> 硬降 · <kbd>C</kbd> 暂存<br>触屏:点击旋转 · 滑动移动 · 下滑硬降</span>';
+  fit();
+  raf=requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
