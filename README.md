@@ -2,6 +2,18 @@
 
 精致的 HTML5 单文件游戏合集,零依赖,开箱即用。
 
+打开根目录的 `index.html` 即为游戏首页(卡片墙导航),点击卡片进入对应游戏。
+
+## 目录结构
+
+```
+.
+├── index.html        # 游戏首页(合集导航)
+├── tetris/
+│   └── index.html    # 俄罗斯方块
+└── README.md
+```
+
 ## 游戏列表
 
 ### 🎮 俄罗斯方块 (Tetris)
@@ -21,6 +33,38 @@
   - `C / Shift` 暂存(Hold)
   - `P` 暂停,`R` 重开
 - **技术栈**: 原生 HTML5 Canvas 2D,IIFE 封装,无外部依赖
+
+## 本地预览
+
+直接双击 `index.html` 即可运行;如需模拟线上环境(干净 URL),在项目根目录启动静态服务器:
+
+```bash
+python3 -m http.server 8000
+# 浏览器打开 http://localhost:8000
+```
+
+## 部署上线
+
+纯静态站点,任意静态托管平台均可**零配置**部署。推荐 Vercel 或 Netlify:
+
+### Vercel
+1. 把项目推送到 GitHub
+2. 登录 [vercel.com](https://vercel.com) → New Project → 导入该仓库
+3. Framework Preset 选 **Other**,其余留空 → Deploy
+4. 完成后获得 `xxx.vercel.app` 域名
+
+命令行方式:
+```bash
+npm i -g vercel
+vercel          # 预览部署
+vercel --prod   # 发布到正式域名
+```
+
+### Netlify
+- **拖拽部署**:登录 [app.netlify.com](https://app.netlify.com),把整个项目文件夹拖到页面部署区即可
+- **Git 自动部署**:连接 GitHub 仓库,Build command 留空,Publish directory 填 `.`
+
+> 两者均自动支持 `/tetris/` 这类干净 URL(省略 `.html`)。
 
 ## 开发规范
 

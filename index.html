@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>游戏合集 · Web Games</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2316162a'/%3E%3Crect x='20' y='20' width='26' height='26' rx='5' fill='%23c084fc'/%3E%3Crect x='54' y='20' width='26' height='26' rx='5' fill='%2322d3ee'/%3E%3Crect x='20' y='54' width='26' height='26' rx='5' fill='%23fb923c'/%3E%3Crect x='54' y='54' width='26' height='26' rx='5' fill='%234ade80'/%3E%3C/svg%3E">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --text:#15171c; --muted:#6b7280;
+    --sub:#4b5563; --border:rgba(0,0,0,.07); --accent:#6366f1; --chip:#f1f2f5;
+  }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+    background:var(--bg);
+    background-image:radial-gradient(900px 520px at 50% -220px, rgba(99,102,241,.12), transparent 70%);
+    color:var(--text); min-height:100vh; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:1080px; margin:0 auto; padding:56px 24px 72px; }
+
+  /* 顶部 */
+  header{ text-align:center; margin-bottom:44px; }
+  .badge{
+    display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+    color:var(--accent); background:rgba(99,102,241,.1); border:1px solid rgba(99,102,241,.2);
+    padding:5px 13px; border-radius:999px; letter-spacing:.5px; margin-bottom:18px;
+  }
+  .badge .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  h1{ font-size:42px; font-weight:800; letter-spacing:-1.2px; line-height:1.1; }
+  h1 .en{ display:block; font-size:13px; font-weight:600; color:var(--muted);
+    letter-spacing:4px; text-transform:uppercase; margin-top:12px; }
+  .lead{ font-size:15.5px; color:var(--sub); margin-top:16px; }
+
+  /* 网格 */
+  .grid{ display:grid; gap:22px; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); }
+
+  /* 卡片 */
+  .card{
+    display:flex; flex-direction:column; background:var(--card); border:1px solid var(--border);
+    border-radius:18px; overflow:hidden; text-decoration:none; color:inherit;
+    box-shadow:0 1px 2px rgba(0,0,0,.04);
+    transition:transform .28s cubic-bezier(.2,.7,.2,1), box-shadow .28s, border-color .28s;
+  }
+  .card:hover{ transform:translateY(-6px); box-shadow:0 20px 44px rgba(20,20,45,.16); border-color:transparent; }
+  .cover{ aspect-ratio:16/10; overflow:hidden; position:relative; background:#0c0c16; }
+  .cover svg{ display:block; width:100%; height:100%; transition:transform .45s cubic-bezier(.2,.7,.2,1); }
+  .card:hover .cover svg{ transform:scale(1.05); }
+  .body{ padding:18px 18px 6px; flex:1; }
+  .card-head{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
+  .card-head h2{ font-size:19px; font-weight:700; letter-spacing:-.3px; }
+  .card-head .en{ font-size:11px; font-weight:600; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; }
+  .desc{ font-size:13.5px; color:var(--sub); margin-top:8px; line-height:1.62; }
+  .tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:13px; }
+  .tag{ font-size:11px; padding:3px 9px; border-radius:999px; background:var(--chip); color:var(--sub); }
+  .foot{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px; margin-top:8px; border-top:1px solid #f0f1f4;
+    font-size:13px; font-weight:600; color:var(--accent);
+  }
+  .foot .arrow{ transition:transform .28s; }
+  .card:hover .foot .arrow{ transform:translateX(4px); }
+
+  /* 占位卡 */
+  .card.soon{
+    align-items:center; justify-content:center; text-align:center; min-height:260px;
+    background:transparent; border:1.5px dashed rgba(0,0,0,.12); box-shadow:none; cursor:default; padding:24px;
+  }
+  .card.soon:hover{ transform:none; box-shadow:none; border-color:rgba(99,102,241,.35); }
+  .card.soon .plus{ font-size:34px; color:#c2c5cc; font-weight:300; line-height:1; margin-bottom:12px; }
+  .card.soon .t{ font-size:14px; font-weight:600; color:var(--muted); }
+  .card.soon .s{ font-size:12px; color:#9ca3af; margin-top:5px; }
+
+  footer{ text-align:center; margin-top:48px; font-size:12.5px; color:#9ca3af; }
+
+  @media (max-width:560px){
+    .wrap{ padding:40px 16px 56px; }
+    h1{ font-size:32px; }
+    .grid{ gap:16px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <span class="badge"><span class="dot"></span>零依赖 · 开箱即玩</span>
+      <h1>游戏合集<span class="en">Web Games</span></h1>
+      <p class="lead">精致的网页小游戏,点开即玩,无需安装。</p>
+    </header>
+
+    <main class="grid" id="grid"></main>
+
+    <footer>使用 HTML5 Canvas 构建 · 支持桌面与移动端</footer>
+  </div>
+
+<script>
+  // 用方块数据生成卡片封面 SVG(深色网格 + 霓虹圆角方块)
+  function blocksCover(blocks){
+    const C=40, P=2, S=36, R=7;          // 单元格 40px,方块 36px,圆角 7
+    const W=320, H=200;
+    let lines='';
+    for(let x=0;x<=W;x+=C) lines+=`<line x1="${x}" y1="0" x2="${x}" y2="${H}"/>`;
+    for(let y=0;y<=H;y+=C) lines+=`<line x1="0" y1="${y}" x2="${W}" y2="${y}"/>`;
+    const cells = blocks.map(([c,r,col])=>
+      `<rect x="${c*C+P}" y="${r*C+P}" width="${S}" height="${S}" rx="${R}" fill="${col}"/>`+
+      `<rect x="${c*C+P+5}" y="${r*C+P+5}" width="${S-10}" height="8" rx="4" fill="rgba(255,255,255,.25)"/>`
+    ).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#16162a"/><stop offset="1" stop-color="#0a0a12"/>
+      </linearGradient></defs>
+      <rect width="${W}" height="${H}" fill="url(#bg)"/>
+      <g stroke="rgba(255,255,255,.045)" stroke-width="1">${lines}</g>
+      ${cells}
+    </svg>`;
+  }
+
+  // 游戏列表:新增游戏只需在此追加一项
+  const games = [
+    {
+      title:'俄罗斯方块', en:'Neon Tetris', path:'tetris/index.html',
+      desc:'经典 SRS 旋转 · T-Spin · Combo · 霓虹风现代化界面,支持触屏。',
+      tags:['益智','经典','单人'],
+      cover: blocksCover([
+        // 下落中的 T 块(紫)
+        [3,0,'#c084fc'],[2,1,'#c084fc'],[3,1,'#c084fc'],[4,1,'#c084fc'],
+        // 堆叠
+        [1,3,'#4ade80'],[2,3,'#fb923c'],[4,3,'#22d3ee'],[5,3,'#fde047'],
+        [1,4,'#3b82f6'],[2,4,'#fb923c'],[3,4,'#f87171'],[4,4,'#22d3ee'],[5,4,'#fde047'],[6,4,'#4ade80'],
+      ]),
+    },
+  ];
+
+  const grid = document.getElementById('grid');
+  games.forEach(g=>{
+    const a = document.createElement('a');
+    a.className='card'; a.href=g.path; a.setAttribute('aria-label', g.title);
+    a.innerHTML = `
+      <div class="cover">${g.cover}</div>
+      <div class="body">
+        <div class="card-head"><h2>${g.title}</h2><span class="en">${g.en}</span></div>
+        <p class="desc">${g.desc}</p>
+        <div class="tags">${g.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      </div>
+      <div class="foot"><span>开始游戏</span><span class="arrow">→</span></div>`;
+    grid.appendChild(a);
+  });
+
+  // 开发中占位卡
+  const soon = document.createElement('div');
+  soon.className='card soon';
+  soon.innerHTML = `<div class="plus">+</div><div class="t">更多游戏开发中</div><div class="s">敬请期待</div>`;
+  grid.appendChild(soon);
+</script>
+</body>
+</html>
