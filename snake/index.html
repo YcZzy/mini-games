@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NEON SNAKE · 霓虹贪吃蛇</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2316162a'/%3E%3Crect x='22' y='46' width='20' height='20' rx='6' fill='%234ade80'/%3E%3Crect x='44' y='46' width='20' height='20' rx='6' fill='%2334d399'/%3E%3Crect x='44' y='24' width='20' height='20' rx='6' fill='%2322d3ee'/%3E%3Ccircle cx='74' cy='62' r='9' fill='%23f87171'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0a0a12; --panel:rgba(255,255,255,.04); --panel-border:rgba(255,255,255,.08);
+    --text:#e8e8f0; --muted:#8b8ba7; --accent:#34d399; --accent2:#22d3ee;
+    --grid:rgba(255,255,255,.04);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;width:100%;overscroll-behavior:none}
+  body{
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+    background:radial-gradient(1200px 800px at 50% -10%, #16162a 0%, var(--bg) 55%);
+    color:var(--text);display:flex;align-items:center;justify-content:center;height:100vh;height:100dvh;min-height:0;
+    overflow:hidden;user-select:none;touch-action:none;
+  }
+  /* 流动背景光晕 */
+  .aurora{position:fixed;inset:0;z-index:0;pointer-events:none;filter:blur(70px);opacity:.5}
+  .aurora span{position:absolute;border-radius:50%;mix-blend-mode:screen;animation:float 18s ease-in-out infinite}
+  .aurora span:nth-child(1){width:420px;height:420px;background:#10b981;top:-80px;left:8%;animation-delay:0s}
+  .aurora span:nth-child(2){width:380px;height:380px;background:#3c8cff;bottom:-60px;right:10%;animation-delay:-6s}
+  .aurora span:nth-child(3){width:320px;height:320px;background:#00d4ff;top:40%;left:46%;animation-delay:-12s}
+  @keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.12)}66%{transform:translate(-30px,25px) scale(.92)}}
+
+  .stage{position:relative;z-index:1;display:flex;gap:22px;align-items:center;padding:20px;
+    transform-origin:center}
+  .side{display:flex;flex-direction:column;gap:14px;width:172px}
+  .side.left{align-items:stretch}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:16px;padding:14px;
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);width:100%;
+    box-shadow:0 8px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .panel h3{font-size:11px;letter-spacing:2.5px;color:var(--muted);font-weight:600;
+    text-transform:uppercase;margin-bottom:10px}
+
+  .board-wrap{position:relative;border-radius:18px;overflow:hidden;flex:0 0 auto;
+    box-shadow:0 0 0 1px var(--panel-border), 0 24px 70px rgba(0,0,0,.6), 0 0 80px rgba(52,211,153,.14);
+    background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.25));}
+  #board{display:block;border-radius:18px}
+  #fx{position:absolute;inset:0;pointer-events:none}
+
+  /* 数字统计 */
+  .stat{display:flex;flex-direction:column;gap:2px;margin-bottom:12px}
+  .stat:last-child{margin-bottom:0}
+  .stat .label{font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
+  .stat .value{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;
+    line-height:1.1;text-shadow:0 0 18px rgba(52,211,153,.5)}
+  .stat .value.sm{font-size:22px}
+  .stat .value.flash{animation:val-pop .35s ease}
+  @keyframes val-pop{0%{transform:scale(1)}40%{transform:scale(1.18);color:#fff}100%{transform:scale(1)}}
+
+  /* Combo */
+  .combo-mult{font-size:34px;font-weight:800;line-height:1;letter-spacing:-1px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;
+    background-clip:text;-webkit-text-fill-color:transparent;transition:transform .12s}
+  .combo-mult.pop{animation:val-pop .3s ease}
+  .combo-bar{margin-top:8px;height:8px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}
+  .combo-fill{height:100%;width:0%;border-radius:6px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .08s linear}
+
+  /* 道具状态 */
+  .powers{display:flex;flex-direction:column;gap:8px;min-height:20px}
+  .powers .empty{font-size:11px;color:var(--muted);text-align:center;padding:4px 0}
+  .pchip{display:flex;align-items:center;gap:8px}
+  .pchip .ico{font-size:18px;width:24px;text-align:center}
+  .pchip .meta{flex:1;min-width:0}
+  .pchip .nm{font-size:11px;color:#cfcfe6;letter-spacing:.5px}
+  .pchip .bar{height:5px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:3px}
+  .pchip .bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#ffd35c,#ff8a5c)}
+
+  /* 居中弹层 */
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:14px;background:rgba(8,8,16,.8);backdrop-filter:blur(8px);
+    border-radius:18px;text-align:center;padding:26px;opacity:0;visibility:hidden;
+    transition:opacity .3s ease, visibility .3s;z-index:5}
+  .overlay.show{opacity:1;visibility:visible}
+  .overlay .big{font-size:34px;font-weight:800;letter-spacing:1px;
+    background:linear-gradient(90deg,#34d399,#22d3ee,#3c8cff);-webkit-background-clip:text;
+    background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 18px rgba(52,211,153,.4))}
+  .overlay .sub{font-size:13.5px;color:var(--muted);line-height:1.85;max-width:300px}
+  .overlay kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+    border-radius:6px;padding:2px 8px;font-size:12px;font-family:inherit;color:#fff;margin:0 1px}
+
+  /* 模式选择(仅开始界面) */
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:300px}
+  .overlay:not(.start) .modes{display:none}
+  .mode-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;cursor:pointer;
+    background:rgba(255,255,255,.05);border:1px solid var(--panel-border);border-radius:12px;
+    padding:9px 11px;text-align:left;transition:border-color .18s,background .18s,transform .12s}
+  .mode-btn .mt{font-size:13px;font-weight:700;color:#fff;letter-spacing:.3px}
+  .mode-btn .md{font-size:10.5px;color:var(--muted);line-height:1.35}
+  .mode-btn:hover{background:rgba(255,255,255,.08)}
+  .mode-btn.on{border-color:var(--accent);background:rgba(52,211,153,.16);
+    box-shadow:0 0 0 1px var(--accent), 0 8px 24px rgba(52,211,153,.25)}
+  .mode-btn.on .mt{color:var(--accent)}
+
+  .btn{margin-top:4px;background:linear-gradient(90deg,#10b981,#22d3ee);color:#06121a;border:none;
+    padding:12px 34px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;
+    letter-spacing:1px;box-shadow:0 8px 28px rgba(52,211,153,.45);transition:transform .15s, box-shadow .15s}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(52,211,153,.6)}
+  .btn:active{transform:translateY(0)}
+
+  /* 浮动提示(Combo / 道具 / 金苹果) */
+  .toast{position:absolute;left:50%;top:30%;transform:translate(-50%,0);pointer-events:none;
+    font-weight:800;text-align:center;z-index:4;opacity:0}
+  .toast.go{animation:toast 1.05s cubic-bezier(.2,.8,.2,1) forwards}
+  .toast .t1{font-size:30px;letter-spacing:1px;
+    background:linear-gradient(90deg,#ffd35c,#ff5ca8);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;filter:drop-shadow(0 0 12px rgba(255,92,168,.5))}
+  .toast .t2{font-size:14px;color:#fff;margin-top:2px;letter-spacing:2px}
+  @keyframes toast{0%{opacity:0;transform:translate(-50%,18px) scale(.8)}
+    18%{opacity:1;transform:translate(-50%,0) scale(1.05)}
+    30%{transform:translate(-50%,0) scale(1)}
+    80%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}
+
+  .hint{font-size:11px;color:var(--muted);line-height:1.95;letter-spacing:.3px}
+  .hint b{color:#cfcfe6;font-weight:600}
+  .pill{display:inline-block;background:rgba(255,255,255,.06);border:1px solid var(--panel-border);
+    border-radius:6px;padding:1px 7px;margin:1px;font-size:10px;color:#cfcfe6}
+
+  /* 移动端方向盘 */
+  .dpad-bar{position:fixed;bottom:0;left:0;right:0;z-index:10;display:none;
+    align-items:flex-end;justify-content:space-between;
+    padding:12px 20px calc(14px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top,rgba(10,10,18,.95),transparent);pointer-events:none}
+  .dpad{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,58px);
+    gap:6px;pointer-events:auto}
+  .dbtn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;
+    color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;
+    user-select:none;touch-action:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4);
+    transition:background .12s, transform .08s}
+  .dbtn:active,.dbtn.pressed{background:rgba(52,211,153,.4);transform:scale(.9);box-shadow:0 2px 8px rgba(52,211,153,.5)}
+  .dbtn.up{grid-area:1/2/2/3}
+  .dbtn.left{grid-area:2/1/3/2}
+  .dbtn.right{grid-area:2/3/3/4}
+  .dbtn.down{grid-area:3/2/4/3}
+  .dbtn.disabled{opacity:.32}
+  .side-actions{display:flex;flex-direction:column;gap:10px;pointer-events:auto;align-items:flex-end}
+  .abtn{width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.15);color:#fff;font-size:18px;display:flex;align-items:center;
+    justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4);touch-action:none}
+  .abtn:active{background:rgba(52,211,153,.35);transform:scale(.92)}
+
+  /* 移动端紧凑 HUD */
+  .m-hud{display:none}
+
+  @media (max-width:760px), (pointer:coarse){
+    body{align-items:flex-start}
+    .hint-panel{display:none}
+    .side{display:none}
+    .stage{flex-direction:column;gap:10px;padding:8px 8px calc(196px + env(safe-area-inset-bottom));
+      width:100%;height:100vh;height:100dvh;max-height:none;align-items:center;justify-content:flex-start;
+      transform:none!important}
+    /* 顶部紧凑 HUD */
+    .m-hud{display:flex;width:100%;max-width:520px;gap:8px;align-items:stretch;flex-wrap:wrap;
+      justify-content:center}
+    .m-card{flex:1;min-width:62px;background:var(--panel);border:1px solid var(--panel-border);
+      border-radius:12px;padding:7px 9px;backdrop-filter:blur(10px)}
+    .m-card .label{font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+    .m-card .value{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+    .m-combo{flex:1.2;min-width:80px}
+    .m-combo .row{display:flex;align-items:baseline;justify-content:space-between}
+    .m-combo .cmult{font-size:18px;font-weight:800;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;
+      background-clip:text;-webkit-text-fill-color:transparent}
+    .m-combo .cbar{margin-top:5px;height:6px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden}
+    .m-combo .cbar i{display:block;height:100%;border-radius:5px;width:0%;
+      background:linear-gradient(90deg,var(--accent),var(--accent2))}
+    .m-powers{display:flex;gap:5px;align-items:center;justify-content:center;min-height:14px;flex-wrap:wrap}
+    .m-powers .pp{display:flex;align-items:center;gap:3px;font-size:13px;
+      background:rgba(255,255,255,.06);border:1px solid var(--panel-border);border-radius:8px;padding:2px 6px}
+    .m-powers .pp small{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums}
+    .board-wrap{margin:0}
+    .dpad-bar{display:flex}
+    .overlay .big{font-size:clamp(24px,7vw,32px)}
+    .overlay .sub{font-size:12px;max-width:88vw}
+    .modes{max-width:340px}
+    .btn{padding:11px 30px}
+  }
+
+  /* 横屏:把方向盘放两侧,保持可玩 */
+  @media (pointer:coarse) and (orientation:landscape) and (max-height:480px){
+    .stage{flex-direction:row;padding:6px 150px;justify-content:center;height:100vh;height:100dvh}
+    .m-hud{display:none}
+    .dpad-bar{top:0;align-items:center;
+      background:linear-gradient(to right,rgba(10,10,18,.92),transparent 30%,transparent 70%,rgba(10,10,18,.92))}
+  }
+</style>
+</head>
+<body>
+  <div class="aurora"><span></span><span></span><span></span></div>
+
+  <div class="stage" id="stage">
+    <!-- 左侧:分数 -->
+    <div class="side left">
+      <div class="panel">
+        <div class="stat"><span class="label">Score</span><span class="value" id="score">0</span></div>
+        <div class="stat" style="margin-bottom:0"><span class="label">Best</span><span class="value sm" id="best">0</span></div>
+      </div>
+      <div class="panel">
+        <div class="stat"><span class="label">Length</span><span class="value sm" id="length">3</span></div>
+        <div class="stat" style="margin-bottom:0"><span class="label">Level</span><span class="value sm" id="level">1</span></div>
+      </div>
+    </div>
+
+    <!-- 移动端紧凑 HUD -->
+    <div class="m-hud">
+      <div class="m-card"><div class="label">Score</div><div class="value" id="mScore">0</div></div>
+      <div class="m-card"><div class="label">Best</div><div class="value" id="mBest">0</div></div>
+      <div class="m-card"><div class="label">Len</div><div class="value" id="mLen">3</div></div>
+      <div class="m-card m-combo">
+        <div class="row"><span class="label">Combo</span><span class="cmult" id="mCombo">x1</span></div>
+        <div class="cbar"><i id="mComboFill"></i></div>
+        <div class="m-powers" id="mPowers"></div>
+      </div>
+    </div>
+
+    <!-- 主棋盘 -->
+    <div class="board-wrap" id="boardWrap">
+      <canvas id="board"></canvas>
+      <canvas id="fx"></canvas>
+      <div class="toast" id="toast"><div class="t1" id="toast1"></div><div class="t2" id="toast2"></div></div>
+      <div class="overlay show start" id="overlay">
+        <div class="big" id="ovBig">NEON SNAKE</div>
+        <div class="sub" id="ovSub"></div>
+        <div class="modes" id="modes"></div>
+        <button class="btn" id="ovBtn">开始游戏</button>
+      </div>
+    </div>
+
+    <!-- 右侧:Combo + 道具 + 操作 -->
+    <div class="side right">
+      <div class="panel">
+        <h3>Combo</h3>
+        <div class="combo-mult" id="comboMult">x1</div>
+        <div class="combo-bar"><div class="combo-fill" id="comboFill"></div></div>
+      </div>
+      <div class="panel">
+        <h3>Power · 道具</h3>
+        <div class="powers" id="powers"><div class="empty">— 暂无 —</div></div>
+      </div>
+      <div class="panel hint-panel">
+        <h3>操作</h3>
+        <div class="hint">
+          <b>← → ↑ ↓ / WASD</b> 转向<br>
+          <b>P / 空格</b> 暂停 &nbsp; <b>R</b> 重开<br>
+          <div style="margin-top:8px">
+            <span class="pill">🍎 变长</span>
+            <span class="pill">💎 金苹果</span>
+            <span class="pill">⚡ 道具</span>
+            <span class="pill">Combo 连击</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 移动端方向盘(仅触屏显示) -->
+  <div class="dpad-bar">
+    <div class="side-actions">
+      <button class="abtn" id="dPause">⏸</button>
+    </div>
+    <div class="dpad">
+      <button class="dbtn up" id="dUp">↑</button>
+      <button class="dbtn left" id="dLeft">←</button>
+      <button class="dbtn right" id="dRight">→</button>
+      <button class="dbtn down" id="dDown">↓</button>
+    </div>
+  </div>
+
+<script>
+"use strict";
+(function(){
+  // ===================== 配置 =====================
+  const GRID = 23;                 // 逻辑网格 23×23(奇数,有正中心格)
+  let CELL = 26;                   // 实际像素由 fit() 计算
+  const START_LEN = 3;             // 初始蛇长
+  const BASE_STEP = 132;           // 基础步进间隔(ms)
+  const MIN_STEP = 60;             // 最快步进(ms)
+
+  // Combo:吃到食物的连击窗口(ms),随等级略缩短;倍率 = 连击数(封顶)
+  const COMBO_WIN_MAX = 3200, COMBO_WIN_MIN = 1600, COMBO_MULT_CAP = 9;
+
+  // 特殊食物(金苹果 / 道具球)生成节奏与存活时间(ms)
+  const SPECIAL_GAP_MIN = 8000, SPECIAL_GAP_MAX = 13000;
+  const GOLDEN_LIFE = 8000, POWER_LIFE = 9000;
+
+  // 道具持续时间(ms)
+  const DUR = { ghost:5200, magnet:6500, slow:5200 };
+  const MAGNET_RADIUS = 6;         // 磁吸生效的曼哈顿半径(格)
+
+  // 道具元数据(展示用)
+  const POWER_META = {
+    ghost:{ ico:'🛡️', name:'穿身', toast:'GHOST' },
+    magnet:{ ico:'🧲', name:'磁吸', toast:'MAGNET' },
+    slow:{ ico:'⏱️', name:'减速', toast:'SLOW-MO' },
+    shrink:{ ico:'✂️', name:'缩短', toast:'SHRINK' },
+  };
+  const POWER_KINDS = ['ghost','magnet','slow','shrink'];
+
+  // 模式定义
+  const MODES = {
+    classic:{ name:'经典', desc:'撞墙 / 撞己即结束', wrap:false, maze:false, speed:false },
+    wrap:   { name:'穿墙', desc:'撞墙从对侧穿出',   wrap:true,  maze:false, speed:false },
+    maze:   { name:'迷宫', desc:'场上固定障碍墙体', wrap:false, maze:true,  speed:false },
+    speed:  { name:'极速', desc:'速度随时间持续攀升', wrap:false, maze:false, speed:true  },
+  };
+
+  // ===================== DOM =====================
+  const boardCv = document.getElementById('board');
+  const bctx = boardCv.getContext('2d');
+  const fxCv = document.getElementById('fx');
+  const fctx = fxCv.getContext('2d');
+  const elScore=document.getElementById('score'), elBest=document.getElementById('best'),
+        elLength=document.getElementById('length'), elLevel=document.getElementById('level');
+  const elComboMult=document.getElementById('comboMult'), elComboFill=document.getElementById('comboFill');
+  const elPowers=document.getElementById('powers');
+  const mScore=document.getElementById('mScore'), mBest=document.getElementById('mBest'),
+        mLen=document.getElementById('mLen'), mCombo=document.getElementById('mCombo'),
+        mComboFill=document.getElementById('mComboFill'), mPowers=document.getElementById('mPowers');
+  const overlay=document.getElementById('overlay'), ovBig=document.getElementById('ovBig'),
+        ovSub=document.getElementById('ovSub'), ovBtn=document.getElementById('ovBtn'),
+        modesEl=document.getElementById('modes');
+  const toast=document.getElementById('toast'), toast1=document.getElementById('toast1'), toast2=document.getElementById('toast2');
+  const boardWrap=document.getElementById('boardWrap');
+  const stage=document.getElementById('stage');
+  const dUp=document.getElementById('dUp'), dDown=document.getElementById('dDown'),
+        dLeft=document.getElementById('dLeft'), dRight=document.getElementById('dRight'),
+        dPause=document.getElementById('dPause');
+  const touchLayoutMq = window.matchMedia('(max-width:760px), (pointer:coarse)');
+  function isTouchLayout(){ return touchLayoutMq.matches; }
+
+  // ===================== 游戏状态 =====================
+  let state;                       // 'idle' | 'play' | 'pause' | 'over' | 'win'
+  let mode = 'classic';
+  let snake, prevSnake;            // 蛇身格子数组(snake[0] 为头);prevSnake 为上一步位置(用于插值)
+  let dir, queue;                  // 当前方向 {x,y};方向输入队列(防 180° 反向)
+  let grow;                        // 本步是否生长(吃到食物)
+  let obstacles;                   // 障碍格集合 Set("x,y")(迷宫模式)
+  let food, special;               // 普通食物 {x,y};特殊食物 {x,y,kind:'golden'|'power',life,maxLife}|null
+  let score, eaten, level, combo, comboTimer, comboWin;
+  let powers;                      // 激活中的道具 {ghost:msLeft, magnet:msLeft, slow:msLeft}
+  let specialTimer;                // 距下次生成特殊食物的倒计时(ms)
+  let stepMs, stepAcc;             // 当前步进间隔;步进累加器(用于插值)
+  let elapsed;                     // 本局已用时间(s,极速模式用)
+  let lastTime, raf;
+  let best = +(localStorage.getItem('neon_snake_best')||0);
+
+  // ===================== 工具函数 =====================
+  const key = (x,y)=>x+','+y;
+  function roundRect(ctx,x,y,w,h,r){
+    r=Math.min(r,w/2,h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+  }
+  // HSL 颜色(蛇身渐变用)
+  function hsl(h,s,l,a=1){ return `hsla(${h},${s}%,${l}%,${a})`; }
+  // 当前主题色相(随等级流动)
+  function themeHue(){ return (150 + (level-1)*16) % 360; }
+
+  // ===================== 网格 / 障碍 =====================
+  function occupiedBySnake(x,y, includeTail=true){
+    const n = includeTail ? snake.length : snake.length-1;
+    for(let i=0;i<n;i++) if(snake[i].x===x && snake[i].y===y) return true;
+    return false;
+  }
+  function isObstacle(x,y){ return obstacles.has(key(x,y)); }
+
+  // 生成对称迷宫障碍(留出中心起步走廊,保证不困住起点)
+  function buildMaze(){
+    obstacles = new Set();
+    if(!MODES[mode].maze) return;
+    const c = (GRID-1)/2;                 // 中心 11
+    const add=(x,y)=>{
+      if(x<1||y<1||x>=GRID-1||y>=GRID-1) return;   // 不贴最外圈,避免视觉糊边
+      if(Math.abs(y-c)<=1) return;                 // 中心横向走廊(起步行)保持畅通
+      obstacles.add(key(x,y));
+      obstacles.add(key(GRID-1-x,y));              // 左右镜像
+      obstacles.add(key(x,GRID-1-y));              // 上下镜像
+      obstacles.add(key(GRID-1-x,GRID-1-y));
+    };
+    // 对称短墙(add 自动镜像到四个象限)
+    for(let i=0;i<4;i++){ add(5, 4+i); }           // 左侧竖墙
+    for(let i=0;i<5;i++){ add(4+i, 5); }           // 横墙
+    for(let i=0;i<4;i++){ add(8, 8+i); }           // 内侧竖墙
+    add(c,4); add(c,5);                            // 顶部中线小墩(对称会补底部)
+  }
+
+  // 随机取一个空格(不在蛇 / 障碍 / 已有食物上)。无空格返回 null(胜利)
+  function randomEmptyCell(){
+    const occ = new Set(obstacles);
+    for(const s of snake) occ.add(key(s.x,s.y));
+    if(food) occ.add(key(food.x,food.y));
+    if(special) occ.add(key(special.x,special.y));
+    const free=[];
+    for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++){
+      if(!occ.has(key(x,y))) free.push({x,y});
+    }
+    if(free.length===0) return null;
+    return free[Math.floor(Math.random()*free.length)];
+  }
+
+  function spawnFood(){
+    const c = randomEmptyCell();
+    if(!c){ win(); return; }
+    food = { x:c.x, y:c.y };
+  }
+  function spawnSpecial(){
+    const c = randomEmptyCell();
+    if(!c) return;                          // 没地方就跳过(下次再来)
+    const isGolden = Math.random() < 0.6;
+    special = isGolden
+      ? { x:c.x, y:c.y, kind:'golden', life:GOLDEN_LIFE, maxLife:GOLDEN_LIFE }
+      : { x:c.x, y:c.y, kind:'power',  life:POWER_LIFE,  maxLife:POWER_LIFE };
+  }
+
+  // ===================== 方向输入 =====================
+  // 入队一个方向,过滤:与队列末尾(或当前方向)同向 / 反向 的无效输入
+  function queueDir(x,y){
+    if(state!=='play') return;
+    const last = queue.length ? queue[queue.length-1] : dir;
+    if(x===last.x && y===last.y) return;        // 同向忽略
+    if(x===-last.x && y===-last.y) return;       // 反向忽略(防自杀)
+    if(queue.length>=2) return;                  // 最多缓存 2 个,避免堆积
+    queue.push({x,y});
+  }
+
+  // ===================== 步进(核心逻辑) =====================
+  function computeStepMs(){
+    let s = BASE_STEP - (level-1)*7;
+    if(MODES[mode].speed) s = (BASE_STEP-18) - elapsed*1.05 - (level-1)*5;
+    s = Math.max(MIN_STEP, s);
+    if(powers.slow>0) s *= 1.8;                  // 减速道具
+    return s;
+  }
+
+  function step(){
+    // 取出一个待执行方向(已在入队时校验过非反向)
+    if(queue.length) dir = queue.shift();
+
+    // 记录上一步位置(用于插值渲染)——深拷贝
+    prevSnake = snake.map(s=>({x:s.x, y:s.y}));
+
+    let nx = snake[0].x + dir.x;
+    let ny = snake[0].y + dir.y;
+
+    // 边界处理
+    if(MODES[mode].wrap){
+      nx = (nx + GRID) % GRID;
+      ny = (ny + GRID) % GRID;
+    } else if(nx<0 || ny<0 || nx>=GRID || ny>=GRID){
+      return die();                              // 撞墙即死(穿身道具不豁免边界)
+    }
+
+    const ghost = powers.ghost>0;
+
+    // 撞障碍
+    if(isObstacle(nx,ny) && !ghost){ return die(); }
+
+    // 撞自身:若本步不生长,尾巴会让出当前格,故可进入「当前尾格」
+    if(!ghost && occupiedBySnake(nx,ny, grow /*生长则含尾*/)){
+      return die();
+    }
+
+    // 前进:新头入列
+    snake.unshift({x:nx, y:ny});
+    if(!grow){ snake.pop(); }                    // 不生长则去尾
+    grow = false;
+
+    // 吃普通食物
+    if(food && nx===food.x && ny===food.y){
+      onEat('normal');
+      spawnFood();
+    }
+    // 吃特殊食物
+    else if(special && nx===special.x && ny===special.y){
+      const k = special.kind;
+      special = null;
+      onEat(k==='golden' ? 'golden' : 'power');
+    }
+  }
+
+  function onEat(type){
+    // —— Combo —— 在窗口内连击则累加
+    combo = (comboTimer>0) ? combo+1 : 1;
+    comboWin = Math.max(COMBO_WIN_MIN, COMBO_WIN_MAX - level*60);
+    comboTimer = comboWin;
+    const mult = Math.min(combo, COMBO_MULT_CAP);
+
+    // —— 计分 / 生长 ——
+    let gained=0;
+    if(type==='normal'){
+      gained = 10 * level * mult;
+      grow = true;                               // 下一步去尾被跳过 → 变长
+      eaten++;
+    } else if(type==='golden'){
+      gained = 60 * level * mult;
+      grow = true;
+      eaten++;
+      burstAt(snake[0].x, snake[0].y, '#ffd35c', 16);
+      showToast('GOLDEN', `+${gained}`);
+    } else if(type==='power'){
+      gained = 25 * level * mult;
+      grantRandomPower();
+    }
+    score += gained;
+
+    // —— 升级:每 5 个食物 ——
+    const newLevel = Math.floor(eaten/5)+1;
+    if(newLevel!==level){ level=newLevel; refreshTheme(); }
+
+    // 连击播报(≥2 连显示)
+    if(combo>=2 && type!=='power'){ showToast(`${mult}× COMBO`, type==='golden'?'GOLDEN':''); }
+
+    burstAt(snake[0].x, snake[0].y, type==='golden'?'#ffd35c':`hsl(${themeHue()} 90% 60%)`, type==='normal'?8:14);
+    shake(type==='golden'?7:4);
+    updateHUD(true);
+    bumpCombo();
+  }
+
+  function grantRandomPower(){
+    const k = POWER_KINDS[Math.floor(Math.random()*POWER_KINDS.length)];
+    if(k==='shrink'){
+      const cut = Math.max(2, Math.floor(snake.length*0.3));
+      const remove = Math.min(cut, snake.length-2);   // 至少保留长度 2
+      for(let i=0;i<remove;i++) snake.pop();
+      burstAt(snake[snake.length-1].x, snake[snake.length-1].y, '#ff8a5c', 14);
+    } else {
+      powers[k] = DUR[k];
+    }
+    showToast(POWER_META[k].toast, '⚡ ' + POWER_META[k].name);
+    renderPowers();
+  }
+
+  // ===================== 主题随等级流动 =====================
+  function refreshTheme(){
+    const h = themeHue();
+    const c = `hsl(${h} 75% 55%)`, c2=`hsl(${(h+40)%360} 80% 60%)`;
+    document.documentElement.style.setProperty('--accent', c);
+    document.documentElement.style.setProperty('--accent2', c2);
+    boardWrap.style.boxShadow =
+      `0 0 0 1px var(--panel-border),0 24px 70px rgba(0,0,0,.6),0 0 90px hsla(${h} 80% 55% / .2)`;
+  }
+
+  // ===================== 渲染 =====================
+  function px(v){ return v*CELL; }
+
+  function drawBackground(){
+    const W=GRID*CELL;
+    bctx.clearRect(0,0,W,W);
+    // 棋盘格底纹
+    bctx.fillStyle='rgba(255,255,255,.012)';
+    for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++){
+      if((x+y)&1){ bctx.fillRect(x*CELL,y*CELL,CELL,CELL); }
+    }
+    // 网格线
+    bctx.strokeStyle='rgba(255,255,255,.04)';
+    bctx.lineWidth=1;
+    for(let i=0;i<=GRID;i++){
+      bctx.beginPath();bctx.moveTo(i*CELL,0);bctx.lineTo(i*CELL,W);bctx.stroke();
+      bctx.beginPath();bctx.moveTo(0,i*CELL);bctx.lineTo(W,i*CELL);bctx.stroke();
+    }
+  }
+
+  function drawObstacles(){
+    for(const k of obstacles){
+      const [x,y]=k.split(',').map(Number);
+      const pad=CELL*0.08, s=CELL-pad*2;
+      const g=bctx.createLinearGradient(x*CELL,y*CELL,x*CELL,y*CELL+CELL);
+      g.addColorStop(0,'rgba(120,130,160,.5)');
+      g.addColorStop(1,'rgba(60,66,90,.5)');
+      bctx.fillStyle=g;
+      roundRect(bctx,x*CELL+pad,y*CELL+pad,s,s,CELL*0.18);bctx.fill();
+      bctx.strokeStyle='rgba(255,255,255,.1)';bctx.lineWidth=1;
+      roundRect(bctx,x*CELL+pad,y*CELL+pad,s,s,CELL*0.18);bctx.stroke();
+    }
+  }
+
+  // 圆角食物方块 + 高光
+  function drawDot(ctx,cx,cy,r,color,glow){
+    if(glow){ ctx.shadowColor=color; ctx.shadowBlur=glow; }
+    const g=ctx.createRadialGradient(cx-r*0.3,cy-r*0.3,r*0.2, cx,cy,r);
+    g.addColorStop(0,'#fff'); g.addColorStop(0.25,color); g.addColorStop(1,color);
+    ctx.fillStyle=g;
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  function drawFood(){
+    if(food){
+      const cx=food.x*CELL+CELL/2, cy=food.y*CELL+CELL/2;
+      const pulse=1+Math.sin(performance.now()/260)*0.06;
+      drawDot(bctx,cx,cy,CELL*0.34*pulse,'#ff5a6e',CELL*0.5);
+      // 叶子高光点
+      bctx.fillStyle='rgba(255,255,255,.85)';
+      bctx.beginPath();bctx.arc(cx-CELL*0.12,cy-CELL*0.12,CELL*0.07,0,Math.PI*2);bctx.fill();
+    }
+    if(special){
+      const cx=special.x*CELL+CELL/2, cy=special.y*CELL+CELL/2;
+      const t=special.life/special.maxLife;                  // 剩余比例
+      const pulse=1+Math.sin(performance.now()/180)*0.1;
+      if(special.kind==='golden'){
+        drawDot(bctx,cx,cy,CELL*0.36*pulse,'#ffd35c',CELL*0.7);
+        // 闪光十字
+        bctx.strokeStyle='rgba(255,255,255,.9)';bctx.lineWidth=2;
+        bctx.beginPath();bctx.moveTo(cx-CELL*0.18,cy);bctx.lineTo(cx+CELL*0.18,cy);
+        bctx.moveTo(cx,cy-CELL*0.18);bctx.lineTo(cx,cy+CELL*0.18);bctx.stroke();
+      } else {
+        drawDot(bctx,cx,cy,CELL*0.36*pulse,'#c084fc',CELL*0.7);
+        bctx.font=`${Math.floor(CELL*0.4)}px system-ui`;bctx.textAlign='center';bctx.textBaseline='middle';
+        bctx.fillStyle='#fff';bctx.fillText('⚡',cx,cy+1);
+      }
+      // 倒计时环
+      bctx.strokeStyle='rgba(255,255,255,.55)';bctx.lineWidth=Math.max(2,CELL*0.07);
+      bctx.beginPath();bctx.arc(cx,cy,CELL*0.46,-Math.PI/2,-Math.PI/2+Math.PI*2*t);bctx.stroke();
+    }
+  }
+
+  // 单个蛇身段绘制(支持穿墙无缝双绘):prev→cur 取最短(含环绕)位移,按 t 插值
+  function drawSegmentCell(prev, cur, t, drawFn){
+    let dx=cur.x-prev.x, dy=cur.y-prev.y;
+    if(MODES[mode].wrap){
+      if(dx>1) dx-=GRID; else if(dx<-1) dx+=GRID;
+      if(dy>1) dy-=GRID; else if(dy<-1) dy+=GRID;
+    }
+    const x = prev.x + dx*t;
+    const y = prev.y + dy*t;
+    drawFn(x,y);
+    // 越界部分在对侧补绘,实现穿墙无缝
+    if(MODES[mode].wrap){
+      if(x<0) drawFn(x+GRID,y); else if(x>GRID-1) drawFn(x-GRID,y);
+      if(y<0) drawFn(x,y+GRID); else if(y>GRID-1) drawFn(x,y-GRID);
+    }
+  }
+
+  function snakeCellRect(gx,gy,frac,hue,light,alpha){
+    const grow=CELL*0.12*frac;                 // 略微外扩使相邻段无缝
+    const pad=CELL*0.08;
+    const x=gx*CELL+pad-grow/2, y=gy*CELL+pad-grow/2, s=CELL-pad*2+grow;
+    const g=bctx.createLinearGradient(x,y,x,y+s);
+    g.addColorStop(0,hsl(hue,80,Math.min(72,light+12),alpha));
+    g.addColorStop(1,hsl(hue,75,Math.max(34,light-8),alpha));
+    bctx.fillStyle=g;
+    roundRect(bctx,x,y,s,s,CELL*0.32);bctx.fill();
+  }
+
+  function drawSnake(t){
+    const len=snake.length;
+    const baseHue=themeHue();
+    const ghost = powers.ghost>0;
+    const ghostBlink = ghost && (Math.floor(performance.now()/120)%2===0);
+    const alpha = ghost ? (ghostBlink?0.45:0.8) : 1;
+
+    bctx.save();
+    // 身体(从尾到头绘制,头部最后压在最上层)
+    const off = snake.length - prevSnake.length;   // 生长步 = +1,普通步 = 0
+    for(let i=len-1;i>=1;i--){
+      const cur = snake[i];
+      // 生长步该身体段上一帧位于 prevSnake[i-1](身体不回缩,仅新头滑入)
+      const pj = off>0 ? i-off : i;
+      const prev = prevSnake[Math.min(Math.max(pj,0), prevSnake.length-1)];
+      const ratio = i/len;                       // 0(头侧)→1(尾)
+      const hue = (baseHue + ratio*70) % 360;
+      const light = 56 - ratio*14;
+      const frac = 1 - ratio*0.35;               // 越靠尾越细
+      drawSegmentCell(prev, cur, t, (x,y)=> snakeCellRect(x,y,frac,hue,light,alpha));
+    }
+    // 头部
+    const headPrev = prevSnake[0];
+    drawSegmentCell(headPrev, snake[0], t, (x,y)=> drawHead(x,y,baseHue,alpha));
+    bctx.restore();
+    bctx.globalAlpha=1;
+  }
+
+  function drawHead(gx,gy,hue,alpha){
+    const pad=CELL*0.05;
+    const x=gx*CELL+pad, y=gy*CELL+pad, s=CELL-pad*2;
+    bctx.globalAlpha=alpha;
+    bctx.shadowColor=hsl(hue,90,60,1); bctx.shadowBlur=CELL*0.55;
+    const g=bctx.createLinearGradient(x,y,x,y+s);
+    g.addColorStop(0,hsl(hue,90,68,alpha));
+    g.addColorStop(1,hsl(hue,85,44,alpha));
+    bctx.fillStyle=g;
+    roundRect(bctx,x,y,s,s,CELL*0.36);bctx.fill();
+    bctx.shadowBlur=0;
+    // 眼睛(朝向当前方向)
+    const cx=x+s/2, cy=y+s/2;
+    const ex=dir.x, ey=dir.y;                    // 方向
+    const off=s*0.2, eo=s*0.16;                  // 眼间距 / 朝向偏移
+    const perpx=-ey, perpy=ex;                   // 垂直方向
+    const eyes=[ [cx+perpx*off+ex*eo, cy+perpy*off+ey*eo],
+                 [cx-perpx*off+ex*eo, cy-perpy*off+ey*eo] ];
+    for(const [exx,eyy] of eyes){
+      bctx.fillStyle='#fff';
+      bctx.beginPath();bctx.arc(exx,eyy,s*0.12,0,Math.PI*2);bctx.fill();
+      bctx.fillStyle='#0a0a12';
+      bctx.beginPath();bctx.arc(exx+ex*s*0.04,eyy+ey*s*0.04,s*0.06,0,Math.PI*2);bctx.fill();
+    }
+    bctx.globalAlpha=1;
+  }
+
+  function draw(t){
+    drawBackground();
+    drawObstacles();
+    drawFood();
+    if(state==='idle'||state==='play'||state==='pause'||state==='over'||state==='win') drawSnake(t);
+  }
+
+  // ===================== 粒子 / 特效 =====================
+  let particles=[];
+  function burstAt(gx,gy,color,n){
+    const cx=gx*CELL+CELL/2, cy=gy*CELL+CELL/2;
+    for(let k=0;k<n;k++){
+      const a=Math.random()*Math.PI*2, sp=Math.random()*4+1.5;
+      particles.push({ x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp,
+        life:1, color, size:CELL*0.18*Math.random()+2 });
+    }
+  }
+  function updateParticles(dt){
+    const W=GRID*CELL;
+    fctx.clearRect(0,0,W,W);
+    if(particles.length===0) return;
+    for(const p of particles){
+      p.life-=dt*1.8; p.x+=p.vx; p.y+=p.vy; p.vy+=0.18; p.vx*=0.98; p.vy*=0.98;
+      if(p.life>0){
+        fctx.globalAlpha=Math.max(0,p.life);
+        fctx.fillStyle=p.color;
+        roundRect(fctx,p.x,p.y,p.size,p.size,2);fctx.fill();
+      }
+    }
+    fctx.globalAlpha=1;
+    particles=particles.filter(p=>p.life>0);
+  }
+  function shake(px){
+    boardWrap.animate(
+      [{transform:'translate(0,0)'},
+       {transform:`translate(${px*0.5}px,${px*0.4}px)`},
+       {transform:`translate(${-px*0.4}px,${px*0.2}px)`},
+       {transform:'translate(0,0)'}],
+      {duration:190, easing:'ease-out'});
+  }
+
+  function showToast(t1,t2){
+    toast1.textContent=t1; toast2.textContent=t2||'';
+    toast.classList.remove('go'); void toast.offsetWidth; toast.classList.add('go');
+  }
+
+  // ===================== HUD =====================
+  function bumpCombo(){
+    elComboMult.classList.remove('pop'); void elComboMult.offsetWidth; elComboMult.classList.add('pop');
+  }
+  function updateHUD(flash){
+    const mult = Math.min(Math.max(combo,1), COMBO_MULT_CAP);
+    elScore.textContent=score.toLocaleString();
+    elLength.textContent=snake.length;
+    elLevel.textContent=level;
+    elComboMult.textContent='x'+mult;
+    mScore.textContent=score.toLocaleString();
+    mLen.textContent=snake.length;
+    mCombo.textContent='x'+mult;
+    if(flash){ elScore.classList.remove('flash'); void elScore.offsetWidth; elScore.classList.add('flash'); }
+    if(score>best){ best=score; localStorage.setItem('neon_snake_best',best); }
+    elBest.textContent=best; mBest.textContent=best;
+  }
+  function updateComboBar(){
+    const r = comboTimer>0 ? Math.max(0, comboTimer/comboWin) : 0;
+    elComboFill.style.width=(r*100)+'%';
+    mComboFill.style.width=(r*100)+'%';
+  }
+  function renderPowers(){
+    // 桌面侧栏
+    const active = Object.keys(powers).filter(k=>powers[k]>0);
+    if(active.length===0){ elPowers.innerHTML='<div class="empty">— 暂无 —</div>'; }
+    else{
+      elPowers.innerHTML = active.map(k=>{
+        const r = Math.max(0, powers[k]/DUR[k]);
+        return `<div class="pchip"><div class="ico">${POWER_META[k].ico}</div>`+
+               `<div class="meta"><div class="nm">${POWER_META[k].name}</div>`+
+               `<div class="bar"><i style="width:${r*100}%"></i></div></div></div>`;
+      }).join('');
+    }
+    // 移动端芯片
+    if(active.length===0){ mPowers.innerHTML=''; }
+    else{
+      mPowers.innerHTML = active.map(k=>{
+        return `<span class="pp">${POWER_META[k].ico}<small>${Math.ceil(powers[k]/1000)}</small></span>`;
+      }).join('');
+    }
+  }
+
+  // ===================== 主循环 =====================
+  function loop(now){
+    raf=requestAnimationFrame(loop);
+    const dt=Math.min(50,(now-(lastTime||now)));    // ms,封顶防卡顿跳跃
+    lastTime=now;
+
+    if(state==='play'){
+      elapsed += dt/1000;
+
+      // 道具计时
+      let powerChanged=false;
+      for(const k of Object.keys(powers)){
+        if(powers[k]>0){ powers[k]=Math.max(0,powers[k]-dt); powerChanged=true; }
+      }
+      // 磁吸:把普通食物朝头部拉近
+      if(powers.magnet>0 && food) magnetPull();
+
+      // Combo 窗口衰减
+      if(comboTimer>0){
+        comboTimer-=dt;
+        if(comboTimer<=0){ comboTimer=0; combo=0; updateHUD(); }
+      }
+
+      // 特殊食物生命 / 生成
+      if(special){
+        special.life-=dt;
+        if(special.life<=0) special=null;
+      } else {
+        specialTimer-=dt;
+        if(specialTimer<=0){ spawnSpecial(); specialTimer=rand(SPECIAL_GAP_MIN,SPECIAL_GAP_MAX); }
+      }
+
+      // 逻辑步进(累加器,支持平滑插值)
+      stepMs=computeStepMs();
+      stepAcc+=dt;
+      let steps=0;
+      while(stepAcc>=stepMs && state==='play' && steps<4){   // steps 上限防极端卡顿连跳
+        stepAcc-=stepMs; steps++;
+        step();
+      }
+      const t = (state==='play') ? Math.min(1, stepAcc/stepMs) : 1;
+      draw(t);
+      updateComboBar();
+      if(powerChanged) renderPowers();
+    } else {
+      draw(state==='over'||state==='win' ? 1 : (stepMs?Math.min(1,stepAcc/stepMs):0));
+    }
+    updateParticles(dt/1000);
+  }
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  function magnetPull(){
+    const h=snake[0];
+    let ddx=food.x-h.x, ddy=food.y-h.y;
+    if(MODES[mode].wrap){                        // 穿墙模式取最短环绕距离
+      if(Math.abs(ddx)>GRID/2) ddx-= Math.sign(ddx)*GRID;
+      if(Math.abs(ddy)>GRID/2) ddy-= Math.sign(ddy)*GRID;
+    }
+    const manh=Math.abs(ddx)+Math.abs(ddy);
+    if(manh===0 || manh>MAGNET_RADIUS) return;
+    // 每若干帧吸一格:沿主轴朝头移动一格(不与蛇 / 障碍重叠)
+    if(!magnetPull._acc) magnetPull._acc=0;
+    magnetPull._acc += 1;
+    if(magnetPull._acc < 6) return;              // 约每 6 帧移动一格,避免瞬移
+    magnetPull._acc=0;
+    let tx=food.x, ty=food.y;
+    if(Math.abs(ddx)>=Math.abs(ddy)) tx += Math.sign(ddx); else ty += Math.sign(ddy);
+    if(MODES[mode].wrap){ tx=(tx+GRID)%GRID; ty=(ty+GRID)%GRID; }
+    if(tx<0||ty<0||tx>=GRID||ty>=GRID) return;
+    if(isObstacle(tx,ty)) return;
+    if(occupiedBySnake(tx,ty)) return;
+    if(special && tx===special.x && ty===special.y) return;   // 不要把食物吸到特殊食物格上
+    food.x=tx; food.y=ty;
+  }
+
+  // ===================== 流程控制 =====================
+  function startGame(){
+    mode = pendingMode;
+    buildMaze();
+    // 初始蛇:中心行,朝右
+    const cy=(GRID-1)/2;
+    snake=[]; const hx=Math.floor(GRID/2);
+    for(let i=0;i<START_LEN;i++) snake.push({x:hx-i, y:cy});
+    prevSnake = snake.map(s=>({x:s.x,y:s.y}));
+    dir={x:1,y:0}; queue=[]; grow=false;
+    powers={ghost:0,magnet:0,slow:0};
+    score=0; eaten=0; level=1; combo=0; comboTimer=0; comboWin=COMBO_WIN_MAX;
+    special=null; specialTimer=rand(SPECIAL_GAP_MIN,SPECIAL_GAP_MAX);
+    stepMs=BASE_STEP; stepAcc=0; elapsed=0;
+    particles=[]; magnetPull._acc=0;
+    spawnFood();
+    refreshTheme();
+    state='play';
+    lastTime=performance.now();
+    overlay.classList.remove('show');
+    updateHUD(); updateComboBar(); renderPowers(); updateDpad();
+  }
+  function togglePause(){
+    if(state==='play'){
+      state='pause';
+      showOverlay('已暂停', isTouchLayout()?'点击 ⏸ 继续':'按 <kbd>P</kbd> 继续', '继续', false);
+      updateDpad();
+    } else if(state==='pause'){
+      state='play';
+      lastTime=performance.now();                // 重置时间基准,避免恢复瞬间大 dt
+      overlay.classList.remove('show');
+      updateDpad();
+    }
+  }
+  function die(){
+    state='over';
+    shake(12);
+    burstAt(snake[0].x, snake[0].y, '#ff5a6e', 26);
+    flashBoard('rgba(255,40,70,.35)');
+    const isBest = score>=best && score>0;
+    updateHUD();
+    showOverlay('GAME OVER',
+      `得分 <b style="color:#fff">${score.toLocaleString()}</b> · 长度 ${snake.length} · 等级 ${level}`+
+      (isBest? '<br><span style="color:#ffd35c">🏆 新纪录!</span>' : `<br>最高 ${best.toLocaleString()}`),
+      '再来一局', true);                          // 显示模式选择,可换模式再来
+    updateDpad();
+  }
+  function win(){
+    state='win';
+    flashBoard('rgba(52,211,153,.4)');
+    updateHUD();
+    showOverlay('🎉 通关!',
+      `你填满了整个棋盘!<br>得分 <b style="color:#fff">${score.toLocaleString()}</b> · 长度 ${snake.length}`,
+      '再来一局', true);
+    updateDpad();
+  }
+  function flashBoard(color){
+    boardWrap.animate([{boxShadow:`0 0 0 2px ${color}, 0 0 80px ${color}`},{boxShadow:'none'}],
+      {duration:450, easing:'ease-out'});
+  }
+  function showOverlay(big,sub,btn,isStart){
+    ovBig.textContent=big; ovSub.innerHTML=sub; ovBtn.textContent=btn;
+    overlay.classList.toggle('start', !!isStart);
+    overlay.classList.add('show');
+  }
+
+  // 开始界面(含模式选择)
+  let pendingMode='classic';
+  function buildModeSelector(){
+    modesEl.innerHTML='';
+    for(const m of Object.keys(MODES)){
+      const b=document.createElement('button');
+      b.className='mode-btn'+(m===pendingMode?' on':'');
+      b.dataset.mode=m;
+      b.innerHTML=`<span class="mt">${MODES[m].name}</span><span class="md">${MODES[m].desc}</span>`;
+      b.addEventListener('click',()=>{
+        pendingMode=m;
+        [...modesEl.children].forEach(c=>c.classList.toggle('on', c.dataset.mode===m));
+      });
+      modesEl.appendChild(b);
+    }
+  }
+  function setStartOverlay(){
+    ovBig.textContent='NEON SNAKE';
+    ovBtn.textContent='开始游戏';
+    ovSub.innerHTML = isTouchLayout()
+      ? '滑动屏幕或用方向盘控制<br><span style="font-size:12px">连击 · 金苹果 · 道具 · 多模式</span>'
+      : '经典玩法 × 现代创新<br><span style="font-size:12px">方向键 / WASD 转向 · 吃食物变长 · 连击得分</span>';
+    overlay.classList.add('start');
+    buildModeSelector();
+  }
+
+  // ===================== 键盘输入 =====================
+  document.addEventListener('keydown',(e)=>{
+    const k=e.key;
+    if(k==='p'||k==='P'){ if(state==='play'||state==='pause'){ e.preventDefault(); togglePause(); } return; }
+    if(k==='r'||k==='R'){ e.preventDefault(); startGame(); return; }
+    if(state!=='play'){
+      if((k===' '||k==='Enter')){ e.preventDefault();
+        if(state==='idle'||state==='over'||state==='win') startGame();
+        else if(state==='pause') togglePause();
+      } else if(k.startsWith('Arrow')){ e.preventDefault(); }
+      return;
+    }
+    switch(k){
+      case 'ArrowLeft': case 'a': case 'A': e.preventDefault(); queueDir(-1,0); break;
+      case 'ArrowRight': case 'd': case 'D': e.preventDefault(); queueDir(1,0); break;
+      case 'ArrowUp': case 'w': case 'W': e.preventDefault(); queueDir(0,-1); break;
+      case 'ArrowDown': case 's': case 'S': e.preventDefault(); queueDir(0,1); break;
+      case ' ': e.preventDefault(); togglePause(); break;
+    }
+  });
+
+  // ===================== 触屏:滑动转向 =====================
+  let touchStart=null;
+  boardWrap.addEventListener('touchstart',(e)=>{
+    if(state!=='play') return;
+    const t=e.touches[0];
+    touchStart={x:t.clientX, y:t.clientY};
+  },{passive:true});
+  boardWrap.addEventListener('touchmove',(e)=>{
+    if(!touchStart || state!=='play') return;
+    const t=e.touches[0];
+    const dx=t.clientX-touchStart.x, dy=t.clientY-touchStart.y;
+    const th=22;
+    if(Math.abs(dx)<th && Math.abs(dy)<th) return;
+    if(Math.abs(dx)>Math.abs(dy)) queueDir(dx>0?1:-1,0);
+    else queueDir(0,dy>0?1:-1);
+    touchStart={x:t.clientX, y:t.clientY};        // 连续滑动可多次转向
+  },{passive:true});
+  boardWrap.addEventListener('touchend',()=>{ touchStart=null; },{passive:true});
+
+  // ===================== 方向盘按键 =====================
+  function bindDpad(btn, fx, fy){
+    btn.addEventListener('pointerdown',(e)=>{
+      e.preventDefault();
+      btn.classList.add('pressed');
+      queueDir(fx,fy);
+    });
+    const up=()=>btn.classList.remove('pressed');
+    btn.addEventListener('pointerup',up);
+    btn.addEventListener('pointerleave',up);
+    btn.addEventListener('pointercancel',up);
+    // 阻止触摸默认行为
+    btn.addEventListener('touchstart',(e)=>{e.preventDefault();e.stopPropagation();},{passive:false});
+  }
+  bindDpad(dUp,0,-1); bindDpad(dDown,0,1); bindDpad(dLeft,-1,0); bindDpad(dRight,1,0);
+  dPause.addEventListener('pointerdown',(e)=>{ e.preventDefault(); if(state==='play'||state==='pause') togglePause(); });
+  dPause.addEventListener('touchstart',(e)=>{e.preventDefault();e.stopPropagation();},{passive:false});
+
+  function updateDpad(){
+    const on = (state==='play');
+    [dUp,dDown,dLeft,dRight].forEach(b=>b.classList.toggle('disabled', !on));
+  }
+
+  // ===================== 自适应尺寸 =====================
+  function viewportSize(){
+    const vv = window.visualViewport;
+    return {
+      w: vv ? vv.width : window.innerWidth,
+      h: vv ? vv.height : window.innerHeight,
+    };
+  }
+
+  function fit(){
+    const touch=isTouchLayout();
+    const vp = viewportSize();
+    let avail;
+    if(touch){
+      const compactLandscape = window.matchMedia('(orientation:landscape) and (max-height:480px)').matches;
+      const w = vp.w - 16;
+      const h = compactLandscape
+        ? vp.h - 24
+        : vp.h - (196 + 96);                      // 预留底部方向盘 + 顶部 HUD
+      avail = Math.max(180, Math.min(w, h));
+    } else {
+      avail = Math.min(vp.h - 40, 660);
+    }
+    let cell = Math.floor(avail / GRID);
+    cell = Math.max(12, Math.min(cell, 34));
+    CELL = cell;
+
+    const size = GRID*CELL;
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    for(const cv of [boardCv, fxCv]){
+      cv.style.width=size+'px'; cv.style.height=size+'px';
+      cv.width=Math.round(size*dpr); cv.height=Math.round(size*dpr);
+      cv.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+    }
+
+    // 桌面端整体缩放,避免侧栏 + 棋盘超宽
+    if(!touch){
+      const totalW = stage.scrollWidth;
+      const totalH = stage.scrollHeight;
+      const scale = Math.min(1, (vp.w-16)/totalW, (vp.h-16)/totalH);
+      stage.style.transform = scale<1 ? `scale(${scale})` : 'none';
+    } else {
+      stage.style.transform='none';
+    }
+    // 重绘当前帧
+    const t = (state==='play'&&stepMs) ? Math.min(1,stepAcc/stepMs) : (state==='idle'?0:1);
+    draw(t);
+  }
+
+  // ===================== 防移动端滚动 / 缩放 =====================
+  document.addEventListener('touchmove',(e)=>{
+    if(!e.target.closest('.stage') && !e.target.closest('.dpad-bar')) e.preventDefault();
+  },{passive:false});
+  let lastTouchEnd=0;
+  document.addEventListener('touchend',(e)=>{
+    const now=Date.now();
+    // 双击缩放抑制:放过按钮控件,避免吞掉它们由 touch 派生的合成 click(开始/重开/模式)
+    if(now-lastTouchEnd<=300 && !e.target.closest('button,.btn,.mode-btn')) e.preventDefault();
+    lastTouchEnd=now;
+  },{passive:false});
+
+  // ===================== 启动 =====================
+  ovBtn.addEventListener('click',()=>{
+    if(state==='pause') togglePause();
+    else startGame();
+  });
+  window.addEventListener('resize',fit);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize',fit);
+
+  // 初始化为待开始状态(展示一条静态蛇 + 食物作背景)
+  state='idle'; mode='classic';
+  obstacles=new Set();
+  const cy0=(GRID-1)/2, hx0=Math.floor(GRID/2);
+  snake=[]; for(let i=0;i<START_LEN;i++) snake.push({x:hx0-i,y:cy0});
+  prevSnake=snake.map(s=>({x:s.x,y:s.y}));
+  dir={x:1,y:0}; queue=[]; grow=false;
+  powers={ghost:0,magnet:0,slow:0};
+  score=0; eaten=0; level=1; combo=0; comboTimer=0; comboWin=COMBO_WIN_MAX;
+  food={x:hx0+4,y:cy0}; special=null; specialTimer=0;
+  stepMs=BASE_STEP; stepAcc=0; elapsed=0;
+  elBest.textContent=best; mBest.textContent=best;
+  refreshTheme();
+  setStartOverlay();
+  updateHUD(); updateComboBar(); renderPowers(); updateDpad();
+  fit();
+  raf=requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
