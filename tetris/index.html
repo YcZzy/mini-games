@@ -40,7 +40,7 @@
   .panel h3{font-size:11px;letter-spacing:2.5px;color:var(--muted);font-weight:600;
     text-transform:uppercase;margin-bottom:10px;text-align:center}
 
-  .board-wrap{position:relative;border-radius:18px;overflow:hidden;
+  .board-wrap{position:relative;border-radius:18px;overflow:hidden;flex:0 0 auto;
     box-shadow:0 0 0 1px var(--panel-border), 0 24px 70px rgba(0,0,0,.6), 0 0 80px rgba(124,92,255,.12);
     background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.25));}
   #board{display:block;border-radius:18px}
@@ -122,20 +122,35 @@
   .dpad-wrap .vbtn:nth-child(2){grid-area:r}
   .dpad-wrap .vbtn:nth-child(3){grid-area:b}
 
-  @media (max-width:720px){
+  @media (max-width:720px), (pointer:coarse){
     .hint-panel{display:none}
     .vpad{display:flex;justify-content:space-between}
     /* 移动端纵向布局 */
-    body{align-items:flex-start;padding-top:12px;padding-bottom:0}
-    .stage{flex-direction:column;gap:12px;padding:12px;padding-bottom:200px;width:100%;max-width:500px;margin:0 auto;
+    body{align-items:flex-start;padding-top:0;padding-bottom:0}
+    .stage{flex-direction:column;gap:12px;padding:12px 12px calc(228px + env(safe-area-inset-bottom));
+      width:100%;height:100vh;height:100dvh;max-width:500px;max-height:100vh;max-height:100dvh;margin:0 auto;
       transform:none!important}
     .side{width:100%;flex-direction:row;gap:12px;align-items:stretch}
     .side.left,.side.right{align-items:stretch}
     .side .panel{flex:1;min-width:0}
-    .board-wrap{order:-1;margin:0 auto}
+    .board-wrap{order:-1;margin:0 auto;max-width:100%}
+    .overlay{padding:16px 12px;gap:10px}
+    .overlay .big{font-size:clamp(22px,7vw,30px)}
+    .overlay .sub{font-size:12px;line-height:1.7;max-width:100%}
+    .btn{padding:10px 22px}
     /* Hold/Next 横向排列 */
     .mini canvas{max-width:100%}
     .next-list{flex-direction:row;flex-wrap:wrap;justify-content:center}
+  }
+
+  @media (pointer:coarse) and (orientation:landscape) and (max-height:500px){
+    body{align-items:center}
+    .stage{flex-direction:row;align-items:center;justify-content:center;gap:0;
+      max-width:none;padding:8px 220px;overflow:hidden}
+    .side{display:none}
+    .board-wrap{order:0;margin:0}
+    .vpad{top:0;bottom:0;min-height:0;align-items:center;
+      padding:8px 12px;background:linear-gradient(to right,rgba(10,10,18,.92),transparent 34%,transparent 66%,rgba(10,10,18,.92))}
   }
 </style>
 </head>
@@ -278,25 +293,29 @@
   const toast=document.getElementById('toast'), toast1=document.getElementById('toast1'), toast2=document.getElementById('toast2');
   const boardWrap=document.getElementById('boardWrap');
   const stage=document.getElementById('stage');
+  const touchLayoutMq = window.matchMedia('(max-width:720px), (pointer:coarse)');
+  const compactLandscapeMq = window.matchMedia('(pointer:coarse) and (orientation:landscape) and (max-height:500px)');
+
+  function isTouchLayout(){ return touchLayoutMq.matches; }
 
   // ---------- 自适应尺寸 ----------
   function fit(){
-    // 移动端检测
-    const isMobile = window.innerWidth <= 720;
+    const touchLayout = isTouchLayout();
 
-    if(isMobile){
-      // 移动端:纵向布局,棋盘占满可用宽度
-      const vpadHeight = 200; // 虚拟按键区域预留高度
-      const availW = Math.min(window.innerWidth - 32, 500); // 最大 500px
-      const availH = window.innerHeight - vpadHeight - 100; // 减去按键和顶部空间
+    if(touchLayout){
+      const compactLandscape = compactLandscapeMq.matches;
+      const vpadHeight = compactLandscape ? 16 : 228;
+      const sideInset = compactLandscape ? 440 : 24;
+      const verticalInset = compactLandscape ? 16 : vpadHeight + 24;
+      const availW = Math.max(180, Math.min(window.innerWidth - sideInset, 500));
+      const availH = Math.max(300, window.innerHeight - verticalInset);
 
-      let cell = Math.floor(availW / COLS);
-      cell = Math.max(20, Math.min(cell, 42)); // 移动端允许更大的格子
+      let cell = Math.floor(Math.min(availW / COLS, availH / ROWS));
+      cell = Math.max(16, Math.min(cell, 42));
       CELL = cell;
     } else {
       // 桌面端:原有逻辑
       const availH = Math.min(window.innerHeight-40, 760);
-      const availW = window.innerWidth-40;
       let cell = Math.floor(availH/ROWS);
       cell = Math.max(18, Math.min(cell, 38));
       CELL = cell;
@@ -315,10 +334,12 @@
     setupMini(holdCv,hctx);
 
     // 桌面端才需要缩放整个舞台
-    if(!isMobile){
+    if(!touchLayout){
       const totalW = stage.scrollWidth;
       const scale = Math.min(1, (window.innerWidth-16)/totalW);
       stage.style.transform = scale<1 ? `scale(${scale})` : 'none';
+    } else {
+      stage.style.transform = 'none';
     }
 
     draw();
@@ -952,9 +973,7 @@
   let touchStart=null, touchMoved=false, lastTap=0;
   boardWrap.addEventListener('touchstart',(e)=>{
     if(state!=='play'){ return; }
-    // 检查是否在虚拟按键区域内(移动端有虚拟按键时禁用棋盘触摸)
-    const isMobile = window.innerWidth <= 720;
-    if(isMobile) return; // 移动端使用虚拟按键，禁用棋盘触摸
+    if(isTouchLayout()) return; // 移动端使用虚拟按键，禁用棋盘触摸
 
     const t=e.touches[0];
     touchStart={x:t.clientX,y:t.clientY,t:performance.now(),px:t.clientX,py:t.clientY};
@@ -1025,51 +1044,86 @@
   // 添加视觉反馈
   function addPressedClass(btn){ btn.classList.add('pressed'); }
   function removePressedClass(btn){ btn.classList.remove('pressed'); }
+  let lastVirtualPointerAt = 0;
+  function markVirtualPointer(){ lastVirtualPointerAt = performance.now(); }
+  function handleVirtualClick(e, fn){
+    e.preventDefault();
+    e.stopPropagation();
+    if(performance.now() - lastVirtualPointerAt < 350) return;
+    fn();
+  }
+  function flashVirtualButton(btn){
+    addPressedClass(btn);
+    setTimeout(()=>removePressedClass(btn), 100);
+  }
 
-  vLeft.addEventListener('touchstart',(e)=>{ addPressedClass(vLeft); vStartDAS(-1); });
-  vLeft.addEventListener('touchend',(e)=>{ removePressedClass(vLeft); vStopDAS(); });
-  vLeft.addEventListener('touchcancel',(e)=>{ removePressedClass(vLeft); vStopDAS(); });
+  vLeft.addEventListener('pointerdown',(e)=>{ e.preventDefault(); markVirtualPointer(); addPressedClass(vLeft); vStartDAS(-1); });
+  vLeft.addEventListener('pointerup',()=>{ removePressedClass(vLeft); vStopDAS(); });
+  vLeft.addEventListener('pointerleave',()=>{ removePressedClass(vLeft); vStopDAS(); });
+  vLeft.addEventListener('pointercancel',()=>{ removePressedClass(vLeft); vStopDAS(); });
+  vLeft.addEventListener('click',(e)=>handleVirtualClick(e,()=>{ if(state==='play'){ flashVirtualButton(vLeft); tryMove(-1,0); } }));
 
-  vRight.addEventListener('touchstart',(e)=>{ addPressedClass(vRight); vStartDAS(1); });
-  vRight.addEventListener('touchend',(e)=>{ removePressedClass(vRight); vStopDAS(); });
-  vRight.addEventListener('touchcancel',(e)=>{ removePressedClass(vRight); vStopDAS(); });
+  vRight.addEventListener('pointerdown',(e)=>{ e.preventDefault(); markVirtualPointer(); addPressedClass(vRight); vStartDAS(1); });
+  vRight.addEventListener('pointerup',()=>{ removePressedClass(vRight); vStopDAS(); });
+  vRight.addEventListener('pointerleave',()=>{ removePressedClass(vRight); vStopDAS(); });
+  vRight.addEventListener('pointercancel',()=>{ removePressedClass(vRight); vStopDAS(); });
+  vRight.addEventListener('click',(e)=>handleVirtualClick(e,()=>{ if(state==='play'){ flashVirtualButton(vRight); tryMove(1,0); } }));
 
-  vDown.addEventListener('touchstart',(e)=>{
+  vDown.addEventListener('pointerdown',(e)=>{
+    e.preventDefault();
+    markVirtualPointer();
     addPressedClass(vDown);
     if(state==='play' && !vSoftTimer){ softDrop(); vSoftTimer=setInterval(softDrop,40); }
   });
-  vDown.addEventListener('touchend',(e)=>{
+  vDown.addEventListener('pointerup',()=>{
     removePressedClass(vDown);
     if(vSoftTimer){clearInterval(vSoftTimer);vSoftTimer=null;}
   });
-  vDown.addEventListener('touchcancel',(e)=>{
+  vDown.addEventListener('pointerleave',()=>{
     removePressedClass(vDown);
     if(vSoftTimer){clearInterval(vSoftTimer);vSoftTimer=null;}
   });
+  vDown.addEventListener('pointercancel',()=>{
+    removePressedClass(vDown);
+    if(vSoftTimer){clearInterval(vSoftTimer);vSoftTimer=null;}
+  });
+  vDown.addEventListener('click',(e)=>handleVirtualClick(e,()=>{ if(state==='play'){ flashVirtualButton(vDown); softDrop(); } }));
 
-  vRotate.addEventListener('touchstart',(e)=>{
+  vRotate.addEventListener('pointerdown',(e)=>{
+    e.preventDefault();
+    markVirtualPointer();
     addPressedClass(vRotate);
     if(state==='play') rotate(1);
     setTimeout(()=>removePressedClass(vRotate), 100);
   });
+  vRotate.addEventListener('click',(e)=>handleVirtualClick(e,()=>{ flashVirtualButton(vRotate); if(state==='play') rotate(1); }));
 
-  vDrop.addEventListener('touchstart',(e)=>{
+  vDrop.addEventListener('pointerdown',(e)=>{
+    e.preventDefault();
+    markVirtualPointer();
     addPressedClass(vDrop);
     if(state==='play') hardDrop();
     setTimeout(()=>removePressedClass(vDrop), 100);
   });
+  vDrop.addEventListener('click',(e)=>handleVirtualClick(e,()=>{ flashVirtualButton(vDrop); if(state==='play') hardDrop(); }));
 
-  vHold.addEventListener('touchstart',(e)=>{
+  vHold.addEventListener('pointerdown',(e)=>{
+    e.preventDefault();
+    markVirtualPointer();
     addPressedClass(vHold);
     if(state==='play') holdSwap();
     setTimeout(()=>removePressedClass(vHold), 100);
   });
+  vHold.addEventListener('click',(e)=>handleVirtualClick(e,()=>{ flashVirtualButton(vHold); if(state==='play') holdSwap(); }));
 
-  vPause.addEventListener('touchstart',(e)=>{
+  vPause.addEventListener('pointerdown',(e)=>{
+    e.preventDefault();
+    markVirtualPointer();
     addPressedClass(vPause);
     if(state==='play'||state==='pause') togglePause();
     setTimeout(()=>removePressedClass(vPause), 100);
   });
+  vPause.addEventListener('click',(e)=>handleVirtualClick(e,()=>{ flashVirtualButton(vPause); if(state==='play'||state==='pause') togglePause(); }));
 
   // ---------- 启动 ----------
   ovBtn.addEventListener('click',()=>{ if(state==='pause'){togglePause();} else startGame(); });
@@ -1099,7 +1153,7 @@
   for(let i=0;i<NEXT_COUNT;i++) queue.push(nextType());
   holdType=null;
   ovSub.innerHTML='经典玩法 × 创意机制<br><span style="font-size:12px">SRS 旋转 · 7-bag · T-Spin · Combo · Hold</span><br><br>'+
-    '<span style="font-size:12px">键盘:<kbd>←→</kbd><kbd>↓</kbd> 移动 · <kbd>↑</kbd> 旋转 · <kbd>空格</kbd> 硬降 · <kbd>C</kbd> 暂存<br>触屏:点击旋转 · 滑动移动 · 下滑硬降</span>';
+    '<span style="font-size:12px">键盘:<kbd>←→</kbd><kbd>↓</kbd> 移动 · <kbd>↑</kbd> 旋转 · <kbd>空格</kbd> 硬降 · <kbd>C</kbd> 暂存<br>移动端:使用下方虚拟按键操作</span>';
   fit();
   updateVirtualButtons(); // 初始化虚拟按键状态
   raf=requestAnimationFrame(loop);
