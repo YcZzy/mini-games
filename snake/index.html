@@ -125,23 +125,24 @@
   .pill{display:inline-block;background:rgba(255,255,255,.06);border:1px solid var(--panel-border);
     border-radius:6px;padding:1px 7px;margin:1px;font-size:10px;color:#cfcfe6}
 
-  /* 移动端方向盘 */
+  /* 移动端摇杆 */
   .dpad-bar{position:fixed;bottom:0;left:0;right:0;z-index:10;display:none;
     align-items:flex-end;justify-content:space-between;
     padding:12px 20px calc(14px + env(safe-area-inset-bottom));
     background:linear-gradient(to top,rgba(10,10,18,.95),transparent);pointer-events:none}
-  .dpad{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,58px);
-    gap:6px;pointer-events:auto}
-  .dbtn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;
-    color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;
-    user-select:none;touch-action:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4);
-    transition:background .12s, transform .08s}
-  .dbtn:active,.dbtn.pressed{background:rgba(52,211,153,.4);transform:scale(.9);box-shadow:0 2px 8px rgba(52,211,153,.5)}
-  .dbtn.up{grid-area:1/2/2/3}
-  .dbtn.left{grid-area:2/1/3/2}
-  .dbtn.right{grid-area:2/3/3/4}
-  .dbtn.down{grid-area:3/2/4/3}
-  .dbtn.disabled{opacity:.32}
+  .joystick{width:164px;height:164px;border-radius:50%;position:relative;pointer-events:auto;
+    background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.13),rgba(255,255,255,.05) 58%,rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08);
+    touch-action:none;user-select:none}
+  .joystick::before,.joystick::after{content:"";position:absolute;background:rgba(255,255,255,.1);border-radius:999px}
+  .joystick::before{left:22px;right:22px;top:50%;height:1px}
+  .joystick::after{top:22px;bottom:22px;left:50%;width:1px}
+  .stick{position:absolute;left:50%;top:50%;width:64px;height:64px;border-radius:50%;
+    transform:translate(-50%,-50%);background:linear-gradient(180deg,rgba(52,211,153,.9),rgba(34,211,238,.78));
+    border:1px solid rgba(255,255,255,.28);box-shadow:0 0 24px rgba(52,211,153,.45), 0 8px 18px rgba(0,0,0,.38);
+    transition:left .12s ease, top .12s ease, box-shadow .12s ease}
+  .joystick.active .stick{box-shadow:0 0 30px rgba(52,211,153,.65), 0 8px 18px rgba(0,0,0,.38)}
+  .joystick.disabled{opacity:.42}
   .side-actions{display:flex;flex-direction:column;gap:10px;pointer-events:auto;align-items:flex-end}
   .abtn{width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.08);
     border:1px solid rgba(255,255,255,.15);color:#fff;font-size:18px;display:flex;align-items:center;
@@ -185,13 +186,6 @@
     .btn{padding:11px 30px}
   }
 
-  /* 横屏:把方向盘放两侧,保持可玩 */
-  @media (pointer:coarse) and (orientation:landscape) and (max-height:480px){
-    .stage{flex-direction:row;padding:6px 150px;justify-content:center;height:100vh;height:100dvh}
-    .m-hud{display:none}
-    .dpad-bar{top:0;align-items:center;
-      background:linear-gradient(to right,rgba(10,10,18,.92),transparent 30%,transparent 70%,rgba(10,10,18,.92))}
-  }
 </style>
 </head>
 <body>
@@ -262,16 +256,13 @@
     </div>
   </div>
 
-  <!-- 移动端方向盘(仅触屏显示) -->
+  <!-- 移动端摇杆(仅触屏竖屏显示) -->
   <div class="dpad-bar">
     <div class="side-actions">
       <button class="abtn" id="dPause">⏸</button>
     </div>
-    <div class="dpad">
-      <button class="dbtn up" id="dUp">↑</button>
-      <button class="dbtn left" id="dLeft">←</button>
-      <button class="dbtn right" id="dRight">→</button>
-      <button class="dbtn down" id="dDown">↓</button>
+    <div class="joystick" id="joystick" role="application" aria-label="移动摇杆">
+      <div class="stick" id="stick"></div>
     </div>
   </div>
 
@@ -331,8 +322,7 @@
   const toast=document.getElementById('toast'), toast1=document.getElementById('toast1'), toast2=document.getElementById('toast2');
   const boardWrap=document.getElementById('boardWrap');
   const stage=document.getElementById('stage');
-  const dUp=document.getElementById('dUp'), dDown=document.getElementById('dDown'),
-        dLeft=document.getElementById('dLeft'), dRight=document.getElementById('dRight'),
+  const joystick=document.getElementById('joystick'), stick=document.getElementById('stick'),
         dPause=document.getElementById('dPause');
   const touchLayoutMq = window.matchMedia('(max-width:760px), (pointer:coarse)');
   function isTouchLayout(){ return touchLayoutMq.matches; }
@@ -1007,27 +997,75 @@
   },{passive:true});
   boardWrap.addEventListener('touchend',()=>{ touchStart=null; },{passive:true});
 
-  // ===================== 方向盘按键 =====================
-  function bindDpad(btn, fx, fy){
-    btn.addEventListener('pointerdown',(e)=>{
-      e.preventDefault();
-      btn.classList.add('pressed');
-      queueDir(fx,fy);
-    });
-    const up=()=>btn.classList.remove('pressed');
-    btn.addEventListener('pointerup',up);
-    btn.addEventListener('pointerleave',up);
-    btn.addEventListener('pointercancel',up);
-    // 阻止触摸默认行为
-    btn.addEventListener('touchstart',(e)=>{e.preventDefault();e.stopPropagation();},{passive:false});
+  // ===================== 移动端摇杆 =====================
+  const MOUSE_JOYSTICK = 'mouse';
+  let joystickPointer=null, joystickDir='';
+  function resetJoystick(){
+    joystickPointer=null; joystickDir='';
+    joystick.classList.remove('active');
+    stick.style.left='50%'; stick.style.top='50%';
   }
-  bindDpad(dUp,0,-1); bindDpad(dDown,0,1); bindDpad(dLeft,-1,0); bindDpad(dRight,1,0);
+  function moveJoystickTo(clientX, clientY){
+    const r=joystick.getBoundingClientRect();
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const dx=clientX-cx, dy=clientY-cy;
+    const dist=Math.hypot(dx,dy);
+    const max=r.width*0.28;
+    const k=dist>max ? max/dist : 1;
+    stick.style.left=`calc(50% + ${dx*k}px)`;
+    stick.style.top=`calc(50% + ${dy*k}px)`;
+    if(dist<18) return;
+    const next = Math.abs(dx)>Math.abs(dy)
+      ? (dx>0 ? 'right' : 'left')
+      : (dy>0 ? 'down' : 'up');
+    if(next===joystickDir) return;
+    joystickDir=next;
+    if(next==='left') queueDir(-1,0);
+    else if(next==='right') queueDir(1,0);
+    else if(next==='up') queueDir(0,-1);
+    else queueDir(0,1);
+  }
+  function moveJoystick(e){
+    if(joystickPointer!==e.pointerId) return;
+    e.preventDefault();
+    moveJoystickTo(e.clientX,e.clientY);
+  }
+  function endJoystick(e){
+    if(e && joystickPointer!==e.pointerId) return;
+    resetJoystick();
+  }
+  joystick.addEventListener('pointerdown',(e)=>{
+    if(state!=='play') return;
+    joystickPointer=e.pointerId;
+    joystick.classList.add('active');
+    joystick.setPointerCapture(e.pointerId);
+    moveJoystick(e);
+  });
+  joystick.addEventListener('pointermove',moveJoystick);
+  joystick.addEventListener('pointerup',endJoystick);
+  joystick.addEventListener('pointercancel',endJoystick);
+  joystick.addEventListener('mousedown',(e)=>{
+    if(state!=='play' || joystickPointer!==null) return;
+    e.preventDefault();
+    joystickPointer=MOUSE_JOYSTICK;
+    joystick.classList.add('active');
+    moveJoystickTo(e.clientX,e.clientY);
+  });
+  window.addEventListener('mousemove',(e)=>{
+    if(joystickPointer!==MOUSE_JOYSTICK) return;
+    e.preventDefault();
+    moveJoystickTo(e.clientX,e.clientY);
+  });
+  window.addEventListener('mouseup',()=>{
+    if(joystickPointer===MOUSE_JOYSTICK) resetJoystick();
+  });
   dPause.addEventListener('pointerdown',(e)=>{ e.preventDefault(); if(state==='play'||state==='pause') togglePause(); });
   dPause.addEventListener('touchstart',(e)=>{e.preventDefault();e.stopPropagation();},{passive:false});
 
   function updateDpad(){
     const on = (state==='play');
-    [dUp,dDown,dLeft,dRight].forEach(b=>b.classList.toggle('disabled', !on));
+    joystick.classList.toggle('disabled', !on);
+    if(!on) resetJoystick();
   }
 
   // ===================== 自适应尺寸 =====================
@@ -1044,11 +1082,8 @@
     const vp = viewportSize();
     let avail;
     if(touch){
-      const compactLandscape = window.matchMedia('(orientation:landscape) and (max-height:480px)').matches;
       const w = vp.w - 16;
-      const h = compactLandscape
-        ? vp.h - 24
-        : vp.h - (196 + 96);                      // 预留底部方向盘 + 顶部 HUD
+      const h = vp.h - (196 + 96);                // 预留底部摇杆 + 顶部 HUD
       avail = Math.max(180, Math.min(w, h));
     } else {
       avail = Math.min(vp.h - 40, 660);
