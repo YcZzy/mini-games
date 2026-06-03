@@ -4,6 +4,42 @@ This context defines player-facing language for the web games collection.
 
 ## Language
 
+**Minesweeper**:
+The classic single-player grid puzzle where the player reveals safe cells and marks suspected mines.
+_Avoid_: Mine-clearance mode, bomb puzzle
+
+**Classic Minesweeper difficulties**:
+The three fixed Minesweeper presets: Beginner is 9 by 9 with 10 mines, Intermediate is 16 by 16 with 40 mines, and Expert is 30 by 16 with 99 mines.
+_Avoid_: Custom minefield, freeform difficulty
+
+**Safe first reveal**:
+The Minesweeper opening rule where the player's first revealed cell and its surrounding neighbors contain no mines.
+_Avoid_: First-click mine, only center-cell safety
+
+**Flag mark**:
+The only marker the player can place on an unrevealed Minesweeper cell to indicate a suspected mine.
+_Avoid_: Question mark, multi-state marker
+
+**Number quick reveal**:
+The Minesweeper shortcut where clicking a revealed number cell reveals its surrounding unflagged cells when the adjacent flag count matches the number.
+_Avoid_: Manual-only reveal, disabled chording
+
+**Safe-cell victory**:
+The Minesweeper win condition where the player wins after revealing every non-mine cell; correctly flagging every mine is not required.
+_Avoid_: Flag-only victory, requiring all mines to be marked
+
+**Minesweeper controls**:
+The player input model for Minesweeper: desktop uses reveal, flag mark, and number quick reveal; mobile uses tap to reveal, long press for flag mark, and tap on revealed numbers for number quick reveal.
+_Avoid_: Mobile flag mode, question-mark toggle
+
+**Minesweeper best time**:
+The local per-difficulty fastest winning time for Minesweeper. Timing starts on the first revealed cell and failed games do not update the record.
+_Avoid_: Online leaderboard, counting pre-game time
+
+**Mobile minefield layout**:
+The touch-screen layout for Minesweeper boards. Beginner should fit the screen when practical, while larger Classic Minesweeper difficulties keep playable cell sizes and allow horizontal scrolling.
+_Avoid_: Tiny full-board scaling, forcing Expert onto one phone screen
+
 **Mobile Tetris controls**:
 The touch-screen control set for Tetris. It includes left, right, down, hard drop, Hold, and rotate controls, and is intentionally smaller than the desktop keyboard control set.
 _Avoid_: Full keyboard controls, hidden gesture controls
@@ -53,6 +89,42 @@ _Avoid_: Bottom pause button, movement control
 Developer: Should mobile Tetris mirror every keyboard action?
 
 Domain expert: No. Mobile Tetris controls should stay compact: left, right, down, hard drop, Hold, and rotate, while keeping left and right separated by an empty gap.
+
+Developer: Is Minesweeper a mode inside another game?
+
+Domain expert: No. Minesweeper is a standalone grid puzzle in the games collection.
+
+Developer: Should Minesweeper let the player define arbitrary board sizes?
+
+Domain expert: No. Classic Minesweeper difficulties are the supported difficulty set: Beginner, Intermediate, and Expert.
+
+Developer: Can the first Minesweeper reveal be a mine?
+
+Domain expert: No. Safe first reveal keeps the first cell and its surrounding neighbors free of mines.
+
+Developer: Should Minesweeper include a question-mark marker?
+
+Domain expert: No. Flag mark is the only marker for suspected mines.
+
+Developer: Should revealed number cells support a shortcut reveal?
+
+Domain expert: Yes. Number quick reveal opens surrounding unflagged cells when the surrounding flag count matches the number.
+
+Developer: Does Minesweeper require every mine to be flagged before the player can win?
+
+Domain expert: No. Safe-cell victory only requires every non-mine cell to be revealed.
+
+Developer: Should mobile Minesweeper use a separate flag mode?
+
+Domain expert: No. Minesweeper controls use long press for flag mark on mobile and right click for flag mark on desktop.
+
+Developer: Should Minesweeper keep a best score?
+
+Domain expert: Yes. Minesweeper best time is saved locally per difficulty after a win, with timing starting on the first reveal.
+
+Developer: Should Expert Minesweeper shrink to fit on mobile?
+
+Domain expert: No. Mobile minefield layout keeps cells playable and allows horizontal scrolling for larger boards.
 
 Developer: Should the mobile status area include Best score and Combo Max?
 

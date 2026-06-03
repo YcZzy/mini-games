@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NEON MINESWEEPER · 霓虹扫雷</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2323272f'/%3E%3Crect x='18' y='18' width='18' height='18' rx='4' fill='%23e7e0d2'/%3E%3Crect x='41' y='18' width='18' height='18' rx='4' fill='%23f59e0b'/%3E%3Crect x='64' y='18' width='18' height='18' rx='4' fill='%23e7e0d2'/%3E%3Crect x='18' y='41' width='18' height='18' rx='4' fill='%232dd4bf'/%3E%3Ccircle cx='50' cy='50' r='8' fill='%23ef4444'/%3E%3Crect x='64' y='41' width='18' height='18' rx='4' fill='%23e7e0d2'/%3E%3Crect x='18' y='64' width='18' height='18' rx='4' fill='%23e7e0d2'/%3E%3Crect x='41' y='64' width='18' height='18' rx='4' fill='%23a3e635'/%3E%3Crect x='64' y='64' width='18' height='18' rx='4' fill='%23e7e0d2'/%3E%3C/svg%3E">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#0a0a12;
+    --text:#e8e8f0;
+    --muted:#8b8ba7;
+    --muted-2:#cfcfe6;
+    --panel:rgba(255,255,255,.04);
+    --panel-border:rgba(255,255,255,.08);
+    --accent:#7c5cff;
+    --accent-2:#ff5ca8;
+    --accent-3:#00d4ff;
+    --danger:#ff4d6d;
+    --cell:32px;
+    --gap:4px;
+  }
+  html{height:100%;-webkit-text-size-adjust:100%}
+  body{
+    min-height:100%;
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+    color:var(--text);
+    background:radial-gradient(1200px 800px at 50% -10%, #16162a 0%, var(--bg) 55%);
+    overflow-x:hidden;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    filter:blur(70px);opacity:.42;
+    background:
+      radial-gradient(420px 420px at 8% -6%, #5b3cff 0%, transparent 60%),
+      radial-gradient(380px 380px at 92% 108%, #ff3c92 0%, transparent 60%),
+      radial-gradient(320px 320px at 50% 44%, #00d4ff 0%, transparent 60%);
+    mix-blend-mode:screen;
+    animation:aurora-drift 22s ease-in-out infinite;
+  }
+  @keyframes aurora-drift{
+    0%,100%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(2.5%,-2%) scale(1.06)}
+    66%{transform:translate(-2%,2%) scale(.96)}
+  }
+  button{font:inherit}
+  .app{position:relative;z-index:1;width:min(1180px,100%);margin:0 auto;padding:24px 18px 34px}
+
+  /* ── 顶栏 ── */
+  .topbar{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    gap:14px;
+    align-items:center;
+    padding:8px 0 20px;
+  }
+  .back,.new-btn{
+    min-height:40px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    border-radius:12px;
+    font-weight:700;
+    letter-spacing:.5px;
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+  }
+  .back{
+    gap:6px;
+    padding:0 14px;
+    text-decoration:none;
+    font-size:13px;
+    color:var(--text);
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    box-shadow:0 8px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .back:hover{transform:translateY(-2px);border-color:rgba(124,92,255,.5);box-shadow:0 12px 30px rgba(124,92,255,.28), inset 0 1px 0 rgba(255,255,255,.08)}
+  .back:active{transform:translateY(0)}
+  .back:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .title{text-align:center;min-width:0}
+  .title h1{
+    font-size:clamp(26px,4.4vw,42px);
+    line-height:1.05;
+    font-weight:800;
+    letter-spacing:3px;
+    background:linear-gradient(90deg,#7c5cff,#ff5ca8,#00d4ff);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 0 18px rgba(124,92,255,.4));
+  }
+  .title .en{
+    display:block;
+    margin-top:8px;
+    color:var(--muted);
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:5px;
+    text-transform:uppercase;
+  }
+  .new-btn{
+    padding:0 20px;
+    font-size:13px;
+    color:#fff;
+    border:none;
+    background:linear-gradient(90deg,#7c5cff,#9d6bff);
+    box-shadow:0 8px 28px rgba(124,92,255,.45);
+  }
+  .new-btn:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(124,92,255,.6)}
+  .new-btn:active{transform:translateY(0)}
+  .new-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+  .game{display:flex;flex-direction:column;gap:14px}
+
+  /* ── 控制台 ── */
+  .control-strip{
+    display:grid;
+    grid-template-columns:minmax(290px,1.15fr) minmax(320px,1fr);
+    gap:12px;
+    align-items:stretch;
+  }
+  .difficulty{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:8px;
+    min-width:0;
+  }
+  .difficulty button{
+    cursor:pointer;
+    padding:9px 12px;
+    text-align:left;
+    overflow:hidden;
+    color:var(--text);
+    border-radius:14px;
+    border:1px solid var(--panel-border);
+    background:var(--panel);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    box-shadow:0 8px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+    transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .difficulty button:hover{transform:translateY(-2px);border-color:rgba(124,92,255,.45)}
+  .difficulty button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .difficulty button[aria-pressed="true"]{
+    border-color:var(--accent);
+    background:rgba(124,92,255,.16);
+    box-shadow:0 0 0 1px var(--accent), 0 10px 28px rgba(124,92,255,.3), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .difficulty strong{
+    display:block;
+    font-size:14px;
+    font-weight:700;
+    line-height:1.15;
+    white-space:nowrap;
+  }
+  .difficulty button[aria-pressed="true"] strong{
+    background:linear-gradient(90deg,#9d8bff,#00d4ff);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .difficulty span{
+    display:block;
+    margin-top:4px;
+    color:var(--muted);
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.4px;
+    white-space:nowrap;
+  }
+  .difficulty button[aria-pressed="true"] span{color:var(--muted-2)}
+
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:8px;
+  }
+  .stat{
+    position:relative;
+    overflow:hidden;
+    border:1px solid var(--panel-border);
+    border-radius:14px;
+    background:var(--panel);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    padding:10px 12px;
+    min-width:0;
+    box-shadow:0 8px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .stat .label{
+    display:block;
+    color:var(--muted);
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    white-space:nowrap;
+  }
+  .stat .value{
+    display:block;
+    margin-top:3px;
+    font-size:26px;
+    font-weight:700;
+    line-height:1.1;
+    font-variant-numeric:tabular-nums;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    text-shadow:0 0 18px rgba(124,92,255,.5);
+  }
+
+  /* ── 状态行 ── */
+  .status-line{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    min-height:40px;
+    border:1px solid var(--panel-border);
+    border-radius:14px;
+    background:var(--panel);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    padding:9px 16px;
+    box-shadow:0 8px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+    transition:box-shadow .3s ease;
+  }
+  .status-text{
+    position:relative;
+    padding-left:18px;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:2px;
+    color:var(--muted-2);
+  }
+  .status-text::before{
+    content:"";
+    position:absolute;left:0;top:50%;transform:translateY(-50%);
+    width:9px;height:9px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 12px var(--accent);
+    animation:status-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes status-pulse{0%,100%{opacity:.55;transform:translateY(-50%) scale(.85)}50%{opacity:1;transform:translateY(-50%) scale(1.15)}}
+  .status-text.won{color:#9bf6c4}
+  .status-text.won::before{background:#34d399;box-shadow:0 0 14px rgba(52,211,153,.9)}
+  .status-text.lost{color:#ffb3c0}
+  .status-text.lost::before{background:var(--danger);box-shadow:0 0 14px rgba(255,77,109,.9)}
+  .status-line:has(.status-text.won){box-shadow:0 8px 32px rgba(0,0,0,.35), 0 0 36px rgba(52,211,153,.28), inset 0 1px 0 rgba(255,255,255,.06)}
+  .status-line:has(.status-text.lost){box-shadow:0 8px 32px rgba(0,0,0,.35), 0 0 36px rgba(255,77,109,.3), inset 0 1px 0 rgba(255,255,255,.06)}
+
+  /* ── 棋盘容器 ── */
+  .board-viewport{
+    width:100%;
+    overflow:auto;
+    border-radius:18px;
+    background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.25));
+    padding:16px;
+    box-shadow:0 0 0 1px var(--panel-border), 0 24px 70px rgba(0,0,0,.6), 0 0 80px rgba(124,92,255,.14);
+    -webkit-overflow-scrolling:touch;
+  }
+  .board{
+    display:grid;
+    grid-template-columns:repeat(var(--cols),var(--cell));
+    gap:var(--gap);
+    width:max-content;
+    margin:0 auto;
+    padding:12px;
+    border-radius:14px;
+    background:
+      radial-gradient(140% 130% at 50% -20%, rgba(124,92,255,.10), transparent 58%),
+      linear-gradient(180deg, rgba(10,10,22,.55), rgba(4,4,10,.7));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), inset 0 2px 18px rgba(0,0,0,.5);
+    touch-action:pan-x pan-y;
+  }
+
+  /* ── 单元格:未翻开(街机霓虹塑料块) ── */
+  .cell{
+    position:relative;
+    width:var(--cell);
+    height:var(--cell);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:7px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(180deg, rgba(124,92,255,.16), rgba(124,92,255,.04) 55%, rgba(0,0,0,.18));
+    color:var(--text);
+    cursor:pointer;
+    user-select:none;
+    font-size:calc(var(--cell) * .56);
+    font-weight:800;
+    line-height:1;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.22),
+      inset 0 -3px 6px rgba(0,0,0,.32),
+      0 2px 6px rgba(0,0,0,.35);
+    transition:transform .08s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+  }
+  .cell::after{
+    content:"";
+    position:absolute;inset:1px 1px auto 1px;height:42%;
+    border-radius:6px 6px 0 0;
+    background:linear-gradient(180deg, rgba(255,255,255,.18), transparent);
+    pointer-events:none;
+  }
+  .cell:hover{
+    border-color:rgba(124,92,255,.7);
+    background:linear-gradient(180deg, rgba(124,92,255,.3), rgba(124,92,255,.08) 55%, rgba(0,0,0,.16));
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.3),
+      inset 0 -3px 6px rgba(0,0,0,.28),
+      0 0 0 1px rgba(124,92,255,.4),
+      0 0 16px rgba(124,92,255,.45);
+  }
+  .cell:active{transform:translateY(1px) scale(.97)}
+  .cell:focus-visible{
+    outline:none;
+    border-color:var(--accent-3);
+    box-shadow:
+      0 0 0 2px rgba(0,212,255,.9),
+      0 0 16px rgba(0,212,255,.6);
+    z-index:2;
+  }
+
+  /* ── 翻开格子:深色玻璃凹面 ── */
+  .cell.revealed{
+    cursor:default;
+    border-color:rgba(255,255,255,.05);
+    background:linear-gradient(180deg, rgba(8,8,18,.85), rgba(16,16,30,.75));
+    box-shadow:
+      inset 0 2px 8px rgba(0,0,0,.6),
+      inset 0 0 0 1px rgba(255,255,255,.03);
+    transform:none;
+    animation:cell-open .22s ease;
+  }
+  .cell.revealed::after{display:none}
+  .cell.revealed:hover{background:linear-gradient(180deg, rgba(10,10,22,.85), rgba(20,20,36,.78))}
+  @keyframes cell-open{0%{transform:scale(.82);opacity:.4}60%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
+
+  /* ── 数字:强发光霓虹七色 ── */
+  .cell.n1,.cell.n2,.cell.n3,.cell.n4,.cell.n5,.cell.n6,.cell.n7,.cell.n8{font-weight:900}
+  .cell.n1{color:#6fb4ff;text-shadow:0 0 10px rgba(59,130,246,.85)}
+  .cell.n2{color:#5fe9a4;text-shadow:0 0 10px rgba(74,222,128,.85)}
+  .cell.n3{color:#ff7b8a;text-shadow:0 0 10px rgba(248,113,113,.9)}
+  .cell.n4{color:#c79dff;text-shadow:0 0 10px rgba(192,132,252,.9)}
+  .cell.n5{color:#ffd35c;text-shadow:0 0 10px rgba(255,211,92,.85)}
+  .cell.n6{color:#4be3e3;text-shadow:0 0 10px rgba(34,211,238,.85)}
+  .cell.n7{color:#ff9de0;text-shadow:0 0 10px rgba(255,92,168,.85)}
+  .cell.n8{color:#e8e8f0;text-shadow:0 0 10px rgba(232,232,240,.7)}
+
+  /* ── 旗子(琥珀金凸块,深底高对比) ── */
+  .cell.flagged{
+    color:#1a1206;
+    background:linear-gradient(180deg, #ffe49a, #ffc24d 58%, #f0a32e);
+    border-color:rgba(255,211,92,.6);
+    text-shadow:0 1px 0 rgba(255,255,255,.45);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.5),
+      inset 0 -3px 6px rgba(180,110,20,.4),
+      0 0 16px rgba(255,170,60,.5);
+    animation:flag-pop .2s ease;
+  }
+  .cell.flagged::after{display:none}
+  @keyframes flag-pop{0%{transform:scale(.6)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
+
+  /* ── 雷 ── */
+  .cell.mine{
+    color:#fff;
+    background:radial-gradient(circle at 50% 42%, #ff6b81 0%, #d11d3e 55%, #6a0f22 100%);
+    border-color:rgba(255,90,110,.55);
+    text-shadow:0 0 12px rgba(255,255,255,.7);
+    box-shadow:inset 0 0 8px rgba(0,0,0,.5), 0 0 22px rgba(255,77,109,.55);
+    animation:mine-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes mine-pulse{0%,100%{box-shadow:inset 0 0 8px rgba(0,0,0,.5), 0 0 16px rgba(255,77,109,.45)}50%{box-shadow:inset 0 0 8px rgba(0,0,0,.5), 0 0 30px rgba(255,77,109,.75)}}
+  /* 爆炸雷(domTweak 建议加 .exploded;否则该规则静默无害) */
+  .cell.mine.exploded{
+    background:radial-gradient(circle at 50% 42%, #fff 0%, #ff8a4d 35%, #ff2d55 70%, #7a0f22 100%);
+    border-color:#ffd35c;
+    z-index:3;
+    animation:boom .5s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes boom{
+    0%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,77,109,.7), 0 0 28px rgba(255,138,77,.9)}
+    40%{transform:scale(1.22)}
+    100%{transform:scale(1);box-shadow:0 0 0 14px rgba(255,77,109,0), 0 0 28px rgba(255,138,77,.6)}
+  }
+
+  /* ── 错误旗(失败后) ── */
+  .cell.bad-flag{
+    color:#ffd1d8;
+    background:linear-gradient(180deg, rgba(60,30,40,.9), rgba(30,16,22,.85));
+    border-color:rgba(255,77,109,.4);
+    text-shadow:0 0 8px rgba(255,77,109,.6);
+    box-shadow:inset 0 2px 8px rgba(0,0,0,.6);
+    animation:none;
+  }
+
+  /* ── 数字快捷展开失败抖动 ── */
+  .cell.bump{animation:bump .2s ease}
+  @keyframes bump{0%,100%{transform:translate(0,0)}20%{transform:translate(-2px,0)}40%{transform:translate(3px,0)}60%{transform:translate(-3px,0)}80%{transform:translate(2px,0)}}
+
+  /* ── 响应式 ── */
+  @media (max-width:760px){
+    :root{--cell:34px;--gap:4px}
+    .app{padding:14px 10px 24px}
+    .topbar{grid-template-columns:auto 1fr auto;gap:8px;padding-bottom:14px}
+    .back{width:40px;padding:0;font-size:18px}
+    .back span{display:none}
+    .new-btn{padding:0 14px}
+    .title h1{font-size:clamp(22px,7vw,30px);letter-spacing:2px}
+    .title .en{font-size:9px;letter-spacing:3px}
+    .control-strip{grid-template-columns:1fr}
+    .difficulty{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .difficulty button{padding:8px}
+    .difficulty strong{font-size:13px}
+    .difficulty span{font-size:9px}
+    .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .stat .value{font-size:22px}
+    .status-text{letter-spacing:1.4px}
+    .board-viewport{padding:12px}
+    .board{padding:10px}
+  }
+  @media (max-width:380px){
+    :root{--cell:32px;--gap:3px}
+    .difficulty span{font-size:8px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    body::before,.cell.mine,.status-text::before{animation:none}
+    .cell.revealed,.cell.flagged,.cell.mine.exploded,.cell.bump{animation:none}
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="back" href="../index.html" aria-label="返回游戏合集">← <span>合集</span></a>
+      <div class="title">
+        <h1>霓虹扫雷</h1>
+        <span class="en">NEON MINESWEEPER</span>
+      </div>
+      <button class="new-btn" id="newGame" type="button">新局</button>
+    </header>
+
+    <main class="game">
+      <section class="control-strip" aria-label="扫雷控制台">
+        <div class="difficulty" id="difficulty" role="group" aria-label="难度">
+          <button type="button" data-difficulty="beginner">
+            <strong>初级</strong><span>9×9 · 10 雷</span>
+          </button>
+          <button type="button" data-difficulty="intermediate">
+            <strong>中级</strong><span>16×16 · 40 雷</span>
+          </button>
+          <button type="button" data-difficulty="expert">
+            <strong>高级</strong><span>30×16 · 99 雷</span>
+          </button>
+        </div>
+
+        <div class="stats" aria-label="游戏状态">
+          <div class="stat"><span class="label">Mines</span><span class="value" id="mineCounter">10</span></div>
+          <div class="stat"><span class="label">Time</span><span class="value" id="timeCounter">0</span></div>
+          <div class="stat"><span class="label">Best</span><span class="value" id="bestCounter">--</span></div>
+          <div class="stat"><span class="label">Open</span><span class="value" id="openCounter">0</span></div>
+        </div>
+      </section>
+
+      <div class="status-line" aria-live="polite">
+        <span class="status-text" id="statusText">待开局</span>
+      </div>
+
+      <section class="board-viewport" id="boardViewport" aria-label="扫雷棋盘区域">
+        <div class="board" id="board" role="grid" aria-label="扫雷棋盘"></div>
+      </section>
+    </main>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  const DIFFICULTIES = {
+    beginner: { label: "初级", rows: 9, cols: 9, mines: 10 },
+    intermediate: { label: "中级", rows: 16, cols: 16, mines: 40 },
+    expert: { label: "高级", rows: 16, cols: 30, mines: 99 },
+  };
+  const BEST_PREFIX = "mini-games-minesweeper-best-";
+  const LONG_PRESS_MS = 430;
+  const MOVE_CANCEL_PX = 10;
+
+  const boardEl = document.getElementById("board");
+  const mineCounter = document.getElementById("mineCounter");
+  const timeCounter = document.getElementById("timeCounter");
+  const bestCounter = document.getElementById("bestCounter");
+  const openCounter = document.getElementById("openCounter");
+  const statusText = document.getElementById("statusText");
+  const difficultyEl = document.getElementById("difficulty");
+  const newGameBtn = document.getElementById("newGame");
+
+  let difficultyKey = "beginner";
+  let config = DIFFICULTIES[difficultyKey];
+  let cells = [];
+  let status = "ready";
+  let firstReveal = true;
+  let revealedSafe = 0;
+  let flaggedCount = 0;
+  let elapsedSeconds = 0;
+  let startedAt = 0;
+  let timerId = 0;
+  let longPressTimer = 0;
+  let pointerStart = null;
+  let suppressClick = { index: -1, until: 0 };
+
+  function createCells(){
+    return Array.from({ length: config.rows * config.cols }, function(_, index){
+      return {
+        index,
+        mine: false,
+        adjacent: 0,
+        revealed: false,
+        flagged: false,
+        exploded: false,
+        badFlag: false,
+      };
+    });
+  }
+
+  function rowOf(index){ return Math.floor(index / config.cols); }
+  function colOf(index){ return index % config.cols; }
+  function inBounds(row,col){ return row >= 0 && row < config.rows && col >= 0 && col < config.cols; }
+  function indexOf(row,col){ return row * config.cols + col; }
+
+  function neighbors(index){
+    const row = rowOf(index);
+    const col = colOf(index);
+    const result = [];
+    for(let dr = -1; dr <= 1; dr++){
+      for(let dc = -1; dc <= 1; dc++){
+        if(dr === 0 && dc === 0) continue;
+        const nr = row + dr;
+        const nc = col + dc;
+        if(inBounds(nr,nc)) result.push(indexOf(nr,nc));
+      }
+    }
+    return result;
+  }
+
+  function safeZone(index){
+    return new Set([index].concat(neighbors(index)));
+  }
+
+  function shuffle(items){
+    for(let i = items.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = items[i];
+      items[i] = items[j];
+      items[j] = tmp;
+    }
+    return items;
+  }
+
+  function placeMines(firstIndex){
+    const blocked = safeZone(firstIndex);
+    const candidates = cells.map(function(cell){ return cell.index; }).filter(function(index){
+      return !blocked.has(index);
+    });
+    shuffle(candidates).slice(0, config.mines).forEach(function(index){
+      cells[index].mine = true;
+    });
+    cells.forEach(function(cell){
+      cell.adjacent = neighbors(cell.index).filter(function(n){ return cells[n].mine; }).length;
+    });
+  }
+
+  function startTimer(){
+    startedAt = Date.now();
+    elapsedSeconds = 0;
+    updateCounters();
+    timerId = window.setInterval(function(){
+      elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+      timeCounter.textContent = String(elapsedSeconds);
+    }, 250);
+  }
+
+  function stopTimer(){
+    if(timerId){
+      window.clearInterval(timerId);
+      timerId = 0;
+    }
+    if(status === "playing"){
+      elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+    }
+  }
+
+  function bestKey(){ return BEST_PREFIX + difficultyKey; }
+
+  function readBest(){
+    try{
+      const value = window.localStorage.getItem(bestKey());
+      return value === null ? null : Number(value);
+    }catch(error){
+      return null;
+    }
+  }
+
+  function saveBest(seconds){
+    const current = readBest();
+    if(current !== null && current <= seconds) return;
+    try{
+      window.localStorage.setItem(bestKey(), String(seconds));
+    }catch(error){
+      return;
+    }
+  }
+
+  function updateCounters(){
+    mineCounter.textContent = String(config.mines - flaggedCount);
+    timeCounter.textContent = String(elapsedSeconds);
+    const best = readBest();
+    bestCounter.textContent = best === null ? "--" : String(best);
+    openCounter.textContent = String(revealedSafe);
+  }
+
+  function setStatus(nextStatus){
+    status = nextStatus;
+    statusText.className = "status-text";
+    if(status === "ready"){
+      statusText.textContent = "待开局";
+    }else if(status === "playing"){
+      statusText.textContent = "进行中";
+    }else if(status === "won"){
+      statusText.textContent = "胜利";
+      statusText.classList.add("won");
+    }else if(status === "lost"){
+      statusText.textContent = "触雷";
+      statusText.classList.add("lost");
+    }
+  }
+
+  function cellLabel(cell){
+    const position = "第 " + (rowOf(cell.index) + 1) + " 行第 " + (colOf(cell.index) + 1) + " 列";
+    if(cell.revealed){
+      if(cell.mine) return position + "，雷";
+      return position + "，数字 " + cell.adjacent;
+    }
+    if(cell.flagged) return position + "，旗子";
+    return position + "，未翻开";
+  }
+
+  function renderCell(cell){
+    const button = boardEl.querySelector('[data-index="' + cell.index + '"]');
+    if(!button) return;
+    button.className = "cell";
+    button.textContent = "";
+    button.dataset.state = cell.revealed ? "revealed" : "hidden";
+    button.dataset.mark = cell.flagged ? "flag" : "";
+    button.setAttribute("aria-label", cellLabel(cell));
+
+    if(cell.revealed){
+      button.classList.add("revealed");
+      if(cell.mine){
+        button.classList.add("mine");
+        if(cell.exploded) button.classList.add("exploded");
+        button.textContent = cell.exploded ? "✹" : "*";
+      }else if(cell.adjacent > 0){
+        button.classList.add("n" + cell.adjacent);
+        button.textContent = String(cell.adjacent);
+      }
+    }else if(cell.flagged){
+      button.classList.add("flagged");
+      button.textContent = "⚑";
+    }
+    if(cell.badFlag){
+      button.classList.add("bad-flag");
+      button.textContent = "×";
+    }
+  }
+
+  function renderAll(){
+    cells.forEach(renderCell);
+    updateCounters();
+    Array.from(difficultyEl.querySelectorAll("button")).forEach(function(button){
+      const active = button.dataset.difficulty === difficultyKey;
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
+  function buildBoard(){
+    boardEl.style.setProperty("--cols", String(config.cols));
+    boardEl.setAttribute("aria-rowcount", String(config.rows));
+    boardEl.setAttribute("aria-colcount", String(config.cols));
+    boardEl.innerHTML = cells.map(function(cell){
+      const row = rowOf(cell.index) + 1;
+      const col = colOf(cell.index) + 1;
+      return '<button class="cell" type="button" role="gridcell" data-index="' + cell.index + '" aria-rowindex="' + row + '" aria-colindex="' + col + '"></button>';
+    }).join("");
+    renderAll();
+  }
+
+  function revealFlood(startIndex){
+    const stack = [startIndex];
+    const changed = [];
+    while(stack.length){
+      const index = stack.pop();
+      const cell = cells[index];
+      if(cell.revealed || cell.flagged) continue;
+      cell.revealed = true;
+      changed.push(index);
+      if(!cell.mine) revealedSafe++;
+      if(cell.mine) return { mineIndex: index, changed };
+      if(cell.adjacent === 0){
+        neighbors(index).forEach(function(nextIndex){
+          const next = cells[nextIndex];
+          if(!next.revealed && !next.flagged) stack.push(nextIndex);
+        });
+      }
+    }
+    return { mineIndex: -1, changed };
+  }
+
+  function lose(mineIndex){
+    stopTimer();
+    cells.forEach(function(cell){
+      if(cell.mine) cell.revealed = true;
+      if(cell.flagged && !cell.mine) cell.badFlag = true;
+      cell.exploded = cell.index === mineIndex;
+    });
+    setStatus("lost");
+    renderAll();
+  }
+
+  function win(){
+    stopTimer();
+    const finalTime = Math.floor((Date.now() - startedAt) / 1000);
+    elapsedSeconds = Math.max(0, finalTime);
+    cells.forEach(function(cell){
+      if(cell.mine && !cell.flagged){
+        cell.flagged = true;
+        flaggedCount++;
+      }
+    });
+    saveBest(elapsedSeconds);
+    setStatus("won");
+    renderAll();
+  }
+
+  function checkWin(){
+    if(revealedSafe === cells.length - config.mines){
+      win();
+    }else{
+      updateCounters();
+    }
+  }
+
+  function ensureStarted(index){
+    if(!firstReveal) return;
+    placeMines(index);
+    firstReveal = false;
+    setStatus("playing");
+    startTimer();
+  }
+
+  function reveal(index){
+    if(status === "lost" || status === "won") return;
+    const cell = cells[index];
+    if(!cell || cell.flagged) return;
+    ensureStarted(index);
+    if(cell.revealed){
+      quickReveal(index);
+      return;
+    }
+    const result = revealFlood(index);
+    if(result.mineIndex >= 0){
+      lose(result.mineIndex);
+      return;
+    }
+    result.changed.forEach(function(changedIndex){ renderCell(cells[changedIndex]); });
+    checkWin();
+  }
+
+  function quickReveal(index){
+    if(status !== "playing") return;
+    const cell = cells[index];
+    if(!cell.revealed || cell.mine || cell.adjacent === 0) return;
+    const around = neighbors(index);
+    const flags = around.filter(function(nextIndex){ return cells[nextIndex].flagged; }).length;
+    if(flags !== cell.adjacent){
+      const button = boardEl.querySelector('[data-index="' + index + '"]');
+      if(button){
+        button.classList.remove("bump");
+        void button.offsetWidth;
+        button.classList.add("bump");
+      }
+      return;
+    }
+    const toReveal = around.filter(function(nextIndex){
+      return !cells[nextIndex].flagged && !cells[nextIndex].revealed;
+    });
+    for(const nextIndex of toReveal){
+      const result = revealFlood(nextIndex);
+      if(result.mineIndex >= 0){
+        lose(result.mineIndex);
+        return;
+      }
+    }
+    renderAll();
+    checkWin();
+  }
+
+  function toggleFlag(index){
+    if(status === "lost" || status === "won") return;
+    const cell = cells[index];
+    if(!cell || cell.revealed) return;
+    cell.flagged = !cell.flagged;
+    flaggedCount += cell.flagged ? 1 : -1;
+    renderCell(cell);
+    updateCounters();
+  }
+
+  function newGame(nextDifficulty){
+    stopTimer();
+    if(nextDifficulty) difficultyKey = nextDifficulty;
+    config = DIFFICULTIES[difficultyKey];
+    cells = createCells();
+    firstReveal = true;
+    revealedSafe = 0;
+    flaggedCount = 0;
+    elapsedSeconds = 0;
+    setStatus("ready");
+    buildBoard();
+  }
+
+  function cellFromEvent(event){
+    const target = event.target.closest("[data-index]");
+    if(!target || !boardEl.contains(target)) return null;
+    return { element: target, index: Number(target.dataset.index) };
+  }
+
+  boardEl.addEventListener("click", function(event){
+    const hit = cellFromEvent(event);
+    if(!hit) return;
+    if(hit.index === suppressClick.index && Date.now() < suppressClick.until){
+      event.preventDefault();
+      return;
+    }
+    reveal(hit.index);
+  });
+
+  boardEl.addEventListener("contextmenu", function(event){
+    const hit = cellFromEvent(event);
+    if(!hit) return;
+    event.preventDefault();
+    toggleFlag(hit.index);
+  });
+
+  boardEl.addEventListener("keydown", function(event){
+    const hit = cellFromEvent(event);
+    if(!hit) return;
+    if(event.key === "Enter" || event.key === " "){
+      event.preventDefault();
+      reveal(hit.index);
+    }else if(event.key.toLowerCase() === "f"){
+      event.preventDefault();
+      toggleFlag(hit.index);
+    }
+  });
+
+  boardEl.addEventListener("pointerdown", function(event){
+    const hit = cellFromEvent(event);
+    if(!hit || event.pointerType === "mouse") return;
+    pointerStart = { index: hit.index, x: event.clientX, y: event.clientY };
+    window.clearTimeout(longPressTimer);
+    longPressTimer = window.setTimeout(function(){
+      toggleFlag(hit.index);
+      suppressClick = { index: hit.index, until: Date.now() + 700 };
+      if(window.navigator.vibrate) window.navigator.vibrate(12);
+    }, LONG_PRESS_MS);
+  });
+
+  boardEl.addEventListener("pointermove", function(event){
+    if(!pointerStart) return;
+    const dx = Math.abs(event.clientX - pointerStart.x);
+    const dy = Math.abs(event.clientY - pointerStart.y);
+    if(dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX){
+      window.clearTimeout(longPressTimer);
+    }
+  });
+
+  ["pointerup","pointercancel","pointerleave"].forEach(function(type){
+    boardEl.addEventListener(type, function(){
+      window.clearTimeout(longPressTimer);
+      pointerStart = null;
+    });
+  });
+
+  difficultyEl.addEventListener("click", function(event){
+    const button = event.target.closest("[data-difficulty]");
+    if(!button) return;
+    newGame(button.dataset.difficulty);
+  });
+
+  newGameBtn.addEventListener("click", function(){
+    newGame();
+  });
+
+  window.__minesweeper = {
+    getState: function(){
+      return {
+        difficulty: difficultyKey,
+        rows: config.rows,
+        cols: config.cols,
+        mines: config.mines,
+        status,
+        firstReveal,
+        revealedSafe,
+        flaggedCount,
+        elapsedSeconds,
+        cells: cells.map(function(cell){
+          return {
+            index: cell.index,
+            mine: cell.mine,
+            adjacent: cell.adjacent,
+            revealed: cell.revealed,
+            flagged: cell.flagged,
+          };
+        }),
+      };
+    },
+  };
+
+  newGame();
+})();
+</script>
+</body>
+</html>
