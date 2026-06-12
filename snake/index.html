@@ -3,194 +3,216 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>NEON SNAKE · 霓虹贪吃蛇</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2316162a'/%3E%3Crect x='22' y='46' width='20' height='20' rx='6' fill='%234ade80'/%3E%3Crect x='44' y='46' width='20' height='20' rx='6' fill='%2334d399'/%3E%3Crect x='44' y='24' width='20' height='20' rx='6' fill='%2322d3ee'/%3E%3Ccircle cx='74' cy='62' r='9' fill='%23f87171'/%3E%3C/svg%3E">
+<title>贪吃蛇</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2315181D'/%3E%3Crect x='22' y='46' width='20' height='20' rx='5' fill='%238FA694'/%3E%3Crect x='44' y='46' width='20' height='20' rx='5' fill='%23DFE3E8'/%3E%3Crect x='44' y='24' width='20' height='20' rx='5' fill='%238FA694'/%3E%3Ccircle cx='74' cy='62' r='8' fill='%23C76A6A'/%3E%3C/svg%3E">
 <style>
+  /* ── 基础 ── */
   :root{
-    --bg:#0a0a12; --panel:rgba(255,255,255,.04); --panel-border:rgba(255,255,255,.08);
-    --text:#e8e8f0; --muted:#8b8ba7; --accent:#34d399; --accent2:#22d3ee;
-    --grid:rgba(255,255,255,.04);
+    --bg:#0E1013;           /* 页面背景 */
+    --surface:#15181D;      /* 面板/卡片 */
+    --surface-2:#1C2027;    /* 嵌套面板、hover */
+    --border:#262B33;       /* 1px 实线边框 */
+    --border-strong:#343B45;
+    --text:#E7E9EC;
+    --text-2:#9BA1AA;       /* 次级文字 */
+    --text-3:#646B75;       /* 三级文字/小标签 */
+    --accent:#C9B08A;       /* 唯一强调色（香槟暖砂） */
+    --danger:#C76A6A;       /* 失败/普通食物 */
+    --ok:#7FA886;           /* 胜利/成功 */
+    --radius:10px;
+    --radius-sm:6px;
+    --board-bg:#101318;     /* 棋盘底色（比 surface 更深一档） */
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;width:100%;overscroll-behavior:none}
   body{
-    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
-    background:radial-gradient(1200px 800px at 50% -10%, #16162a 0%, var(--bg) 55%);
-    color:var(--text);display:flex;align-items:center;justify-content:center;height:100vh;height:100dvh;min-height:0;
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+    background:var(--bg);
+    color:var(--text);display:flex;flex-direction:column;height:100vh;height:100dvh;min-height:0;
     overflow:hidden;user-select:none;touch-action:none;
   }
-  /* 流动背景光晕 */
-  .aurora{position:fixed;inset:0;z-index:0;pointer-events:none;filter:blur(70px);opacity:.5}
-  .aurora span{position:absolute;border-radius:50%;mix-blend-mode:screen;animation:float 18s ease-in-out infinite}
-  .aurora span:nth-child(1){width:420px;height:420px;background:#10b981;top:-80px;left:8%;animation-delay:0s}
-  .aurora span:nth-child(2){width:380px;height:380px;background:#3c8cff;bottom:-60px;right:10%;animation-delay:-6s}
-  .aurora span:nth-child(3){width:320px;height:320px;background:#00d4ff;top:40%;left:46%;animation-delay:-12s}
-  @keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.12)}66%{transform:translate(-30px,25px) scale(.92)}}
+  button{font:inherit}
 
-  .stage{position:relative;z-index:1;display:flex;gap:22px;align-items:center;padding:20px;
+  /* ── 页头：返回链接 + 游戏名 ── */
+  .topbar{flex:0 0 auto;display:flex;align-items:center;gap:16px;padding:18px 24px 0}
+  .back{font-size:13px;color:var(--text-3);text-decoration:none;transition:color .15s ease}
+  .back:hover{color:var(--text-2)}
+  .back:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+  .title{font-size:17px;font-weight:600;letter-spacing:-.2px;line-height:1.2}
+
+  /* ── 居中容器 ── */
+  .center{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+  .stage{position:relative;display:flex;gap:16px;align-items:stretch;padding:16px;
     transform-origin:center}
-  .side{display:flex;flex-direction:column;gap:14px;width:172px}
+  .side{display:flex;flex-direction:column;gap:12px;width:172px}
   .side.left{align-items:stretch}
 
+  /* ── 面板 ── */
   .panel{
-    background:var(--panel);border:1px solid var(--panel-border);border-radius:16px;padding:14px;
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);width:100%;
-    box-shadow:0 8px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:12px 14px;width:100%;
   }
-  .panel h3{font-size:11px;letter-spacing:2.5px;color:var(--muted);font-weight:600;
+  .panel h3{font-size:11px;letter-spacing:.08em;color:var(--text-3);font-weight:600;
     text-transform:uppercase;margin-bottom:10px}
 
-  .board-wrap{position:relative;border-radius:18px;overflow:hidden;flex:0 0 auto;
-    box-shadow:0 0 0 1px var(--panel-border), 0 24px 70px rgba(0,0,0,.6), 0 0 80px rgba(52,211,153,.14);
-    background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.25));}
-  #board{display:block;border-radius:18px}
+  .board-wrap{position:relative;border-radius:var(--radius);overflow:hidden;flex:0 0 auto;
+    border:1px solid var(--border);background:var(--board-bg)}
+  #board{display:block}
   #fx{position:absolute;inset:0;pointer-events:none}
 
-  /* 数字统计 */
-  .stat{display:flex;flex-direction:column;gap:2px;margin-bottom:12px}
+  /* ── 状态数字 ── */
+  .stat{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
   .stat:last-child{margin-bottom:0}
-  .stat .label{font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
-  .stat .value{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;
-    line-height:1.1;text-shadow:0 0 18px rgba(52,211,153,.5)}
-  .stat .value.sm{font-size:22px}
-  .stat .value.flash{animation:val-pop .35s ease}
-  @keyframes val-pop{0%{transform:scale(1)}40%{transform:scale(1.18);color:#fff}100%{transform:scale(1)}}
+  .stat .label{font-size:11px;letter-spacing:.08em;color:var(--text-3);text-transform:uppercase}
+  .stat .value{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+  .stat .value.sm{font-size:20px}
+  #best,#mBest{color:var(--accent)}      /* 最佳记录用强调色(桌面+移动) */
+  .stat .value.flash{animation:val-pop .2s ease}
+  @keyframes val-pop{0%{transform:scale(1)}40%{transform:scale(1.06)}100%{transform:scale(1)}}
 
-  /* Combo */
-  .combo-mult{font-size:34px;font-weight:800;line-height:1;letter-spacing:-1px;
-    background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;
-    background-clip:text;-webkit-text-fill-color:transparent;transition:transform .12s}
-  .combo-mult.pop{animation:val-pop .3s ease}
-  .combo-bar{margin-top:8px;height:8px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}
-  .combo-fill{height:100%;width:0%;border-radius:6px;
-    background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .08s linear}
+  /* ── Combo ── */
+  .combo-mult{font-size:24px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;
+    color:var(--text);transition:transform .12s}
+  .combo-mult.pop{animation:val-pop .2s ease}
+  .combo-bar{margin-top:10px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden}
+  .combo-fill{height:100%;width:0%;border-radius:2px;background:var(--text-2);transition:width .08s linear}
 
-  /* 道具状态 */
+  /* ── 道具状态 ── */
   .powers{display:flex;flex-direction:column;gap:8px;min-height:20px}
-  .powers .empty{font-size:11px;color:var(--muted);text-align:center;padding:4px 0}
+  .powers .empty{font-size:11px;color:var(--text-3);padding:2px 0}
   .pchip{display:flex;align-items:center;gap:8px}
-  .pchip .ico{font-size:18px;width:24px;text-align:center}
+  .pchip .ico{flex:0 0 auto;width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:600;color:var(--text-2);
+    border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
   .pchip .meta{flex:1;min-width:0}
-  .pchip .nm{font-size:11px;color:#cfcfe6;letter-spacing:.5px}
-  .pchip .bar{height:5px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:3px}
-  .pchip .bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#ffd35c,#ff8a5c)}
+  .pchip .nm{font-size:12px;color:var(--text-2)}
+  .pchip .bar{height:3px;border-radius:2px;background:var(--surface-2);overflow:hidden;margin-top:4px}
+  .pchip .bar i{display:block;height:100%;border-radius:2px;background:var(--accent)}
 
-  /* 居中弹层 */
+  /* ── 居中弹层 ── */
   .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:14px;background:rgba(8,8,16,.8);backdrop-filter:blur(8px);
-    border-radius:18px;text-align:center;padding:26px;opacity:0;visibility:hidden;
-    transition:opacity .3s ease, visibility .3s;z-index:5}
+    justify-content:center;gap:14px;background:rgba(14,16,19,.94);
+    text-align:center;padding:26px;opacity:0;visibility:hidden;
+    transition:opacity .18s ease, visibility .18s;z-index:5}
   .overlay.show{opacity:1;visibility:visible}
-  .overlay .big{font-size:34px;font-weight:800;letter-spacing:1px;
-    background:linear-gradient(90deg,#34d399,#22d3ee,#3c8cff);-webkit-background-clip:text;
-    background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 18px rgba(52,211,153,.4))}
-  .overlay .sub{font-size:13.5px;color:var(--muted);line-height:1.85;max-width:300px}
-  .overlay kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
-    border-radius:6px;padding:2px 8px;font-size:12px;font-family:inherit;color:#fff;margin:0 1px}
+  .overlay .big{font-size:24px;font-weight:600;letter-spacing:-.2px;color:var(--text)}
+  .overlay .sub{font-size:13px;color:var(--text-2);line-height:1.85;max-width:300px}
+  .overlay kbd{background:var(--surface-2);border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm);padding:2px 8px;font-size:12px;font-family:inherit;
+    color:var(--text);margin:0 1px}
 
-  /* 模式选择(仅开始界面) */
+  /* ── 模式选择(仅开始界面) ── */
   .modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:300px}
   .overlay:not(.start) .modes{display:none}
-  .mode-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;cursor:pointer;
-    background:rgba(255,255,255,.05);border:1px solid var(--panel-border);border-radius:12px;
-    padding:9px 11px;text-align:left;transition:border-color .18s,background .18s,transform .12s}
-  .mode-btn .mt{font-size:13px;font-weight:700;color:#fff;letter-spacing:.3px}
-  .mode-btn .md{font-size:10.5px;color:var(--muted);line-height:1.35}
-  .mode-btn:hover{background:rgba(255,255,255,.08)}
-  .mode-btn.on{border-color:var(--accent);background:rgba(52,211,153,.16);
-    box-shadow:0 0 0 1px var(--accent), 0 8px 24px rgba(52,211,153,.25)}
+  .mode-btn{display:flex;flex-direction:column;align-items:flex-start;gap:4px;cursor:pointer;
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:10px 12px;text-align:left;
+    transition:border-color .15s ease,background .15s ease,color .15s ease}
+  .mode-btn .mt{font-size:13px;font-weight:600;color:var(--text);transition:color .15s ease}
+  .mode-btn .md{font-size:11px;color:var(--text-3);line-height:1.35}
+  .mode-btn:hover{background:var(--surface-2);border-color:var(--border-strong)}
+  .mode-btn:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+  /* 选中态：细边框 + 强调色文字，不做满底色 */
+  .mode-btn.on{border-color:var(--accent);background:var(--surface)}
   .mode-btn.on .mt{color:var(--accent)}
 
-  .btn{margin-top:4px;background:linear-gradient(90deg,#10b981,#22d3ee);color:#06121a;border:none;
-    padding:12px 34px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;
-    letter-spacing:1px;box-shadow:0 8px 28px rgba(52,211,153,.45);transition:transform .15s, box-shadow .15s}
-  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(52,211,153,.6)}
-  .btn:active{transform:translateY(0)}
+  /* ── 主按钮 ── */
+  .btn{margin-top:4px;background:var(--accent);color:#0E1013;border:none;
+    padding:10px 28px;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;
+    transition:background .15s ease}
+  .btn:hover{background:#D5BE9B}          /* 提亮约 6% */
+  .btn:active{background:#BFA67F}
+  .btn:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
 
-  /* 浮动提示(Combo / 道具 / 金苹果) */
+  /* ── 浮动提示(Combo / 道具 / 金苹果) ── */
   .toast{position:absolute;left:50%;top:30%;transform:translate(-50%,0);pointer-events:none;
-    font-weight:800;text-align:center;z-index:4;opacity:0}
+    text-align:center;z-index:4;opacity:0}
   .toast.go{animation:toast 1.05s cubic-bezier(.2,.8,.2,1) forwards}
-  .toast .t1{font-size:30px;letter-spacing:1px;
-    background:linear-gradient(90deg,#ffd35c,#ff5ca8);-webkit-background-clip:text;background-clip:text;
-    -webkit-text-fill-color:transparent;filter:drop-shadow(0 0 12px rgba(255,92,168,.5))}
-  .toast .t2{font-size:14px;color:#fff;margin-top:2px;letter-spacing:2px}
-  @keyframes toast{0%{opacity:0;transform:translate(-50%,18px) scale(.8)}
-    18%{opacity:1;transform:translate(-50%,0) scale(1.05)}
-    30%{transform:translate(-50%,0) scale(1)}
-    80%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}
+  .toast .t1{font-size:20px;font-weight:600;letter-spacing:.04em;color:var(--text)}
+  .toast .t2{font-size:12px;color:var(--text-2);margin-top:2px;letter-spacing:.08em;text-transform:uppercase}
+  @keyframes toast{0%{opacity:0;transform:translate(-50%,12px)}
+    18%{opacity:1;transform:translate(-50%,0)}
+    80%{opacity:1}100%{opacity:0;transform:translate(-50%,-16px)}}
 
-  .hint{font-size:11px;color:var(--muted);line-height:1.95;letter-spacing:.3px}
-  .hint b{color:#cfcfe6;font-weight:600}
-  .pill{display:inline-block;background:rgba(255,255,255,.06);border:1px solid var(--panel-border);
-    border-radius:6px;padding:1px 7px;margin:1px;font-size:10px;color:#cfcfe6}
+  /* ── 操作提示 ── */
+  .hint{font-size:12px;color:var(--text-3);line-height:1.95}
+  .hint b{color:var(--text-2);font-weight:600}
+  .pill{display:inline-block;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:var(--radius-sm);padding:1px 7px;margin:1px;font-size:11px;color:var(--text-2)}
 
-  /* 移动端摇杆 */
+  /* ── 移动端摇杆 ── */
   .dpad-bar{position:fixed;bottom:0;left:0;right:0;z-index:10;display:none;
     align-items:flex-end;justify-content:space-between;
     padding:12px 20px calc(14px + env(safe-area-inset-bottom));
-    background:linear-gradient(to top,rgba(10,10,18,.95),transparent);pointer-events:none}
+    background:linear-gradient(to top,rgba(14,16,19,.95),transparent);pointer-events:none}
   .joystick{width:164px;height:164px;border-radius:50%;position:relative;pointer-events:auto;
-    background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.13),rgba(255,255,255,.05) 58%,rgba(255,255,255,.02));
-    border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08);
-    touch-action:none;user-select:none}
-  .joystick::before,.joystick::after{content:"";position:absolute;background:rgba(255,255,255,.1);border-radius:999px}
+    background:var(--surface);
+    border:1px solid var(--border);
+    touch-action:none;user-select:none;transition:border-color .15s ease}
+  .joystick::before,.joystick::after{content:"";position:absolute;background:var(--border);border-radius:999px}
   .joystick::before{left:22px;right:22px;top:50%;height:1px}
   .joystick::after{top:22px;bottom:22px;left:50%;width:1px}
   .stick{position:absolute;left:50%;top:50%;width:64px;height:64px;border-radius:50%;
-    transform:translate(-50%,-50%);background:linear-gradient(180deg,rgba(52,211,153,.9),rgba(34,211,238,.78));
-    border:1px solid rgba(255,255,255,.28);box-shadow:0 0 24px rgba(52,211,153,.45), 0 8px 18px rgba(0,0,0,.38);
-    transition:left .12s ease, top .12s ease, box-shadow .12s ease}
-  .joystick.active .stick{box-shadow:0 0 30px rgba(52,211,153,.65), 0 8px 18px rgba(0,0,0,.38)}
+    transform:translate(-50%,-50%);background:var(--surface-2);
+    border:1px solid var(--border-strong);box-shadow:0 1px 2px rgba(0,0,0,.3);
+    transition:left .12s ease, top .12s ease, border-color .12s ease}
+  .joystick.active{border-color:var(--border-strong)}
+  .joystick.active .stick{border-color:var(--text-3)}
   .joystick.disabled{opacity:.42}
   .side-actions{display:flex;flex-direction:column;gap:10px;pointer-events:auto;align-items:flex-end}
-  .abtn{width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.15);color:#fff;font-size:18px;display:flex;align-items:center;
-    justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4);touch-action:none}
-  .abtn:active{background:rgba(52,211,153,.35);transform:scale(.92)}
+  .abtn{width:52px;height:52px;border-radius:var(--radius);background:var(--surface);
+    border:1px solid var(--border);color:var(--text-2);display:flex;align-items:center;
+    justify-content:center;cursor:pointer;touch-action:none;
+    transition:background .12s ease,border-color .12s ease}
+  .abtn:active{background:var(--surface-2);border-color:var(--border-strong)}
+  /* 暂停图标：两条竖线（纯 CSS，不用 emoji） */
+  .pause-icon{width:10px;height:14px;border-left:3px solid currentColor;border-right:3px solid currentColor}
 
-  /* 移动端紧凑 HUD */
+  /* ── 移动端紧凑 HUD ── */
   .m-hud{display:none}
 
   @media (max-width:760px), (pointer:coarse){
-    body{align-items:flex-start}
     .hint-panel{display:none}
     .side{display:none}
-    .stage{flex-direction:column;gap:10px;padding:8px 8px calc(196px + env(safe-area-inset-bottom));
-      width:100%;height:100vh;height:100dvh;max-height:none;align-items:center;justify-content:flex-start;
+    .topbar{padding:14px 16px 0}
+    .title{font-size:16px}
+    .center{align-items:flex-start}
+    .stage{flex-direction:column;gap:10px;padding:10px 8px calc(196px + env(safe-area-inset-bottom));
+      width:100%;max-height:none;align-items:center;justify-content:flex-start;
       transform:none!important}
     /* 顶部紧凑 HUD */
     .m-hud{display:flex;width:100%;max-width:520px;gap:8px;align-items:stretch;flex-wrap:wrap;
       justify-content:center}
-    .m-card{flex:1;min-width:62px;background:var(--panel);border:1px solid var(--panel-border);
-      border-radius:12px;padding:7px 9px;backdrop-filter:blur(10px)}
-    .m-card .label{font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
-    .m-card .value{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+    .m-card{flex:1;min-width:62px;background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius);padding:7px 9px}
+    .m-card .label{font-size:10px;letter-spacing:.08em;color:var(--text-3);text-transform:uppercase}
+    .m-card .value{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2}
     .m-combo{flex:1.2;min-width:80px}
     .m-combo .row{display:flex;align-items:baseline;justify-content:space-between}
-    .m-combo .cmult{font-size:18px;font-weight:800;
-      background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;
-      background-clip:text;-webkit-text-fill-color:transparent}
-    .m-combo .cbar{margin-top:5px;height:6px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden}
-    .m-combo .cbar i{display:block;height:100%;border-radius:5px;width:0%;
-      background:linear-gradient(90deg,var(--accent),var(--accent2))}
+    .m-combo .cmult{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+    .m-combo .cbar{margin-top:5px;height:3px;border-radius:2px;background:var(--surface-2);overflow:hidden}
+    .m-combo .cbar i{display:block;height:100%;border-radius:2px;width:0%;background:var(--text-2)}
     .m-powers{display:flex;gap:5px;align-items:center;justify-content:center;min-height:14px;flex-wrap:wrap}
-    .m-powers .pp{display:flex;align-items:center;gap:3px;font-size:13px;
-      background:rgba(255,255,255,.06);border:1px solid var(--panel-border);border-radius:8px;padding:2px 6px}
-    .m-powers .pp small{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums}
+    .m-powers .pp{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text-2);
+      background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 6px}
+    .m-powers .pp small{font-size:10px;color:var(--text-3);font-variant-numeric:tabular-nums}
     .board-wrap{margin:0}
     .dpad-bar{display:flex}
-    .overlay .big{font-size:clamp(24px,7vw,32px)}
+    .overlay .big{font-size:clamp(20px,6vw,24px)}
     .overlay .sub{font-size:12px;max-width:88vw}
     .modes{max-width:340px}
-    .btn{padding:11px 30px}
+    .btn{padding:10px 26px}
   }
 
 </style>
 </head>
 <body>
-  <div class="aurora"><span></span><span></span><span></span></div>
+  <header class="topbar">
+    <a class="back" href="../index.html">← 返回合集</a>
+    <h1 class="title">贪吃蛇</h1>
+  </header>
 
+  <div class="center">
   <div class="stage" id="stage">
     <!-- 左侧:分数 -->
     <div class="side left">
@@ -222,7 +244,7 @@
       <canvas id="fx"></canvas>
       <div class="toast" id="toast"><div class="t1" id="toast1"></div><div class="t2" id="toast2"></div></div>
       <div class="overlay show start" id="overlay">
-        <div class="big" id="ovBig">NEON SNAKE</div>
+        <div class="big" id="ovBig">贪吃蛇</div>
         <div class="sub" id="ovSub"></div>
         <div class="modes" id="modes"></div>
         <button class="btn" id="ovBtn">开始游戏</button>
@@ -238,7 +260,7 @@
       </div>
       <div class="panel">
         <h3>Power · 道具</h3>
-        <div class="powers" id="powers"><div class="empty">— 暂无 —</div></div>
+        <div class="powers" id="powers"><div class="empty">暂无</div></div>
       </div>
       <div class="panel hint-panel">
         <h3>操作</h3>
@@ -246,20 +268,21 @@
           <b>← → ↑ ↓ / WASD</b> 转向<br>
           <b>P / 空格</b> 暂停 &nbsp; <b>R</b> 重开<br>
           <div style="margin-top:8px">
-            <span class="pill">🍎 变长</span>
-            <span class="pill">💎 金苹果</span>
-            <span class="pill">⚡ 道具</span>
+            <span class="pill">食物 变长</span>
+            <span class="pill">金苹果 高分</span>
+            <span class="pill">道具球</span>
             <span class="pill">Combo 连击</span>
           </div>
         </div>
       </div>
     </div>
   </div>
+  </div>
 
   <!-- 移动端摇杆(仅触屏竖屏显示) -->
   <div class="dpad-bar">
     <div class="side-actions">
-      <button class="abtn" id="dPause">⏸</button>
+      <button class="abtn" id="dPause" aria-label="暂停"><span class="pause-icon"></span></button>
     </div>
     <div class="joystick" id="joystick" role="application" aria-label="移动摇杆">
       <div class="stick" id="stick"></div>
@@ -287,12 +310,12 @@
   const DUR = { ghost:5200, magnet:6500, slow:5200 };
   const MAGNET_RADIUS = 6;         // 磁吸生效的曼哈顿半径(格)
 
-  // 道具元数据(展示用)
+  // 道具元数据(展示用;ico 为单字母标记,不用 emoji)
   const POWER_META = {
-    ghost:{ ico:'🛡️', name:'穿身', toast:'GHOST' },
-    magnet:{ ico:'🧲', name:'磁吸', toast:'MAGNET' },
-    slow:{ ico:'⏱️', name:'减速', toast:'SLOW-MO' },
-    shrink:{ ico:'✂️', name:'缩短', toast:'SHRINK' },
+    ghost:{ ico:'G', name:'穿身', toast:'GHOST' },
+    magnet:{ ico:'M', name:'磁吸', toast:'MAGNET' },
+    slow:{ ico:'S', name:'减速', toast:'SLOW-MO' },
+    shrink:{ ico:'C', name:'缩短', toast:'SHRINK' },
   };
   const POWER_KINDS = ['ghost','magnet','slow','shrink'];
 
@@ -351,10 +374,16 @@
     ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
     ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
   }
-  // HSL 颜色(蛇身渐变用)
-  function hsl(h,s,l,a=1){ return `hsla(${h},${s}%,${l}%,${a})`; }
-  // 当前主题色相(随等级流动)
-  function themeHue(){ return (150 + (level-1)*16) % 360; }
+  // 固定色板(Graphite 规范:低饱和,无主题流动)
+  const COL = {
+    boardBg:'#101318', gridLine:'#1A1E24',
+    head:'#DFE3E8',                       // 蛇头
+    bodyH:133, bodyS:11, bodyL:61,        // 蛇身 #8FA694 的 HSL,沿身体做 ±8% 明度渐变
+    food:'#C76A6A', golden:'#C9B08A', power:'#9BA1AA',
+    obstacle:'#343B45',
+  };
+  // 蛇身明度渐变用:同色相不同明度
+  function bodyHsl(l,a=1){ return `hsla(${COL.bodyH},${COL.bodyS}%,${l}%,${a})`; }
 
   // ===================== 网格 / 障碍 =====================
   function occupiedBySnake(x,y, includeTail=true){
@@ -497,7 +526,7 @@
       gained = 60 * level * mult;
       grow = true;
       eaten++;
-      burstAt(snake[0].x, snake[0].y, '#ffd35c', 16);
+      burstAt(snake[0].x, snake[0].y, COL.golden, 16);
       showToast('GOLDEN', `+${gained}`);
     } else if(type==='power'){
       gained = 25 * level * mult;
@@ -507,12 +536,12 @@
 
     // —— 升级:每 5 个食物 ——
     const newLevel = Math.floor(eaten/5)+1;
-    if(newLevel!==level){ level=newLevel; refreshTheme(); }
+    if(newLevel!==level){ level=newLevel; }
 
     // 连击播报(≥2 连显示)
     if(combo>=2 && type!=='power'){ showToast(`${mult}× COMBO`, type==='golden'?'GOLDEN':''); }
 
-    burstAt(snake[0].x, snake[0].y, type==='golden'?'#ffd35c':`hsl(${themeHue()} 90% 60%)`, type==='normal'?8:14);
+    burstAt(snake[0].x, snake[0].y, type==='golden'?COL.golden:bodyHsl(COL.bodyL+8), type==='normal'?8:14);
     shake(type==='golden'?7:4);
     updateHUD(true);
     bumpCombo();
@@ -524,22 +553,12 @@
       const cut = Math.max(2, Math.floor(snake.length*0.3));
       const remove = Math.min(cut, snake.length-2);   // 至少保留长度 2
       for(let i=0;i<remove;i++) snake.pop();
-      burstAt(snake[snake.length-1].x, snake[snake.length-1].y, '#ff8a5c', 14);
+      burstAt(snake[snake.length-1].x, snake[snake.length-1].y, COL.power, 14);
     } else {
       powers[k] = DUR[k];
     }
-    showToast(POWER_META[k].toast, '⚡ ' + POWER_META[k].name);
+    showToast(POWER_META[k].toast, POWER_META[k].name);
     renderPowers();
-  }
-
-  // ===================== 主题随等级流动 =====================
-  function refreshTheme(){
-    const h = themeHue();
-    const c = `hsl(${h} 75% 55%)`, c2=`hsl(${(h+40)%360} 80% 60%)`;
-    document.documentElement.style.setProperty('--accent', c);
-    document.documentElement.style.setProperty('--accent2', c2);
-    boardWrap.style.boxShadow =
-      `0 0 0 1px var(--panel-border),0 24px 70px rgba(0,0,0,.6),0 0 90px hsla(${h} 80% 55% / .2)`;
   }
 
   // ===================== 渲染 =====================
@@ -547,14 +566,10 @@
 
   function drawBackground(){
     const W=GRID*CELL;
-    bctx.clearRect(0,0,W,W);
-    // 棋盘格底纹
-    bctx.fillStyle='rgba(255,255,255,.012)';
-    for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++){
-      if((x+y)&1){ bctx.fillRect(x*CELL,y*CELL,CELL,CELL); }
-    }
-    // 网格线
-    bctx.strokeStyle='rgba(255,255,255,.04)';
+    // 棋盘底色 + 细格线(无底纹、无渐变)
+    bctx.fillStyle=COL.boardBg;
+    bctx.fillRect(0,0,W,W);
+    bctx.strokeStyle=COL.gridLine;
     bctx.lineWidth=1;
     for(let i=0;i<=GRID;i++){
       bctx.beginPath();bctx.moveTo(i*CELL,0);bctx.lineTo(i*CELL,W);bctx.stroke();
@@ -566,53 +581,44 @@
     for(const k of obstacles){
       const [x,y]=k.split(',').map(Number);
       const pad=CELL*0.08, s=CELL-pad*2;
-      const g=bctx.createLinearGradient(x*CELL,y*CELL,x*CELL,y*CELL+CELL);
-      g.addColorStop(0,'rgba(120,130,160,.5)');
-      g.addColorStop(1,'rgba(60,66,90,.5)');
-      bctx.fillStyle=g;
-      roundRect(bctx,x*CELL+pad,y*CELL+pad,s,s,CELL*0.18);bctx.fill();
-      bctx.strokeStyle='rgba(255,255,255,.1)';bctx.lineWidth=1;
-      roundRect(bctx,x*CELL+pad,y*CELL+pad,s,s,CELL*0.18);bctx.stroke();
+      // 纯平色块 + 1px 深色内描边
+      bctx.fillStyle=COL.obstacle;
+      roundRect(bctx,x*CELL+pad,y*CELL+pad,s,s,CELL*0.14);bctx.fill();
+      bctx.strokeStyle='rgba(0,0,0,.25)';bctx.lineWidth=1;
+      roundRect(bctx,x*CELL+pad+0.5,y*CELL+pad+0.5,s-1,s-1,CELL*0.14);bctx.stroke();
     }
   }
 
-  // 圆角食物方块 + 高光
-  function drawDot(ctx,cx,cy,r,color,glow){
-    if(glow){ ctx.shadowColor=color; ctx.shadowBlur=glow; }
-    const g=ctx.createRadialGradient(cx-r*0.3,cy-r*0.3,r*0.2, cx,cy,r);
-    g.addColorStop(0,'#fff'); g.addColorStop(0.25,color); g.addColorStop(1,color);
-    ctx.fillStyle=g;
+  // 纯平圆点 + 1px 深色内描边(无发光、无高光)
+  function drawDot(ctx,cx,cy,r,color){
+    ctx.fillStyle=color;
     ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(0,0,0,.25)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(cx,cy,r-0.5,0,Math.PI*2);ctx.stroke();
   }
 
   function drawFood(){
     if(food){
       const cx=food.x*CELL+CELL/2, cy=food.y*CELL+CELL/2;
-      const pulse=1+Math.sin(performance.now()/260)*0.06;
-      drawDot(bctx,cx,cy,CELL*0.34*pulse,'#ff5a6e',CELL*0.5);
-      // 叶子高光点
-      bctx.fillStyle='rgba(255,255,255,.85)';
-      bctx.beginPath();bctx.arc(cx-CELL*0.12,cy-CELL*0.12,CELL*0.07,0,Math.PI*2);bctx.fill();
+      drawDot(bctx,cx,cy,CELL*0.32,COL.food);
     }
     if(special){
       const cx=special.x*CELL+CELL/2, cy=special.y*CELL+CELL/2;
       const t=special.life/special.maxLife;                  // 剩余比例
-      const pulse=1+Math.sin(performance.now()/180)*0.1;
       if(special.kind==='golden'){
-        drawDot(bctx,cx,cy,CELL*0.36*pulse,'#ffd35c',CELL*0.7);
-        // 闪光十字
-        bctx.strokeStyle='rgba(255,255,255,.9)';bctx.lineWidth=2;
-        bctx.beginPath();bctx.moveTo(cx-CELL*0.18,cy);bctx.lineTo(cx+CELL*0.18,cy);
-        bctx.moveTo(cx,cy-CELL*0.18);bctx.lineTo(cx,cy+CELL*0.18);bctx.stroke();
+        drawDot(bctx,cx,cy,CELL*0.34,COL.golden);
       } else {
-        drawDot(bctx,cx,cy,CELL*0.36*pulse,'#c084fc',CELL*0.7);
-        bctx.font=`${Math.floor(CELL*0.4)}px system-ui`;bctx.textAlign='center';bctx.textBaseline='middle';
-        bctx.fillStyle='#fff';bctx.fillText('⚡',cx,cy+1);
+        drawDot(bctx,cx,cy,CELL*0.34,COL.power);
+        // 极简菱形标记(替代 emoji)
+        const d=CELL*0.15;
+        bctx.fillStyle=COL.boardBg;
+        bctx.beginPath();
+        bctx.moveTo(cx,cy-d);bctx.lineTo(cx+d,cy);bctx.lineTo(cx,cy+d);bctx.lineTo(cx-d,cy);
+        bctx.closePath();bctx.fill();
       }
-      // 倒计时环
-      bctx.strokeStyle='rgba(255,255,255,.55)';bctx.lineWidth=Math.max(2,CELL*0.07);
-      bctx.beginPath();bctx.arc(cx,cy,CELL*0.46,-Math.PI/2,-Math.PI/2+Math.PI*2*t);bctx.stroke();
+      // 倒计时环(中性灰)
+      bctx.strokeStyle='rgba(255,255,255,.35)';bctx.lineWidth=Math.max(1.5,CELL*0.05);
+      bctx.beginPath();bctx.arc(cx,cy,CELL*0.44,-Math.PI/2,-Math.PI/2+Math.PI*2*t);bctx.stroke();
     }
   }
 
@@ -633,20 +639,16 @@
     }
   }
 
-  function snakeCellRect(gx,gy,frac,hue,light,alpha){
+  function snakeCellRect(gx,gy,frac,light,alpha){
     const grow=CELL*0.12*frac;                 // 略微外扩使相邻段无缝
     const pad=CELL*0.08;
     const x=gx*CELL+pad-grow/2, y=gy*CELL+pad-grow/2, s=CELL-pad*2+grow;
-    const g=bctx.createLinearGradient(x,y,x,y+s);
-    g.addColorStop(0,hsl(hue,80,Math.min(72,light+12),alpha));
-    g.addColorStop(1,hsl(hue,75,Math.max(34,light-8),alpha));
-    bctx.fillStyle=g;
-    roundRect(bctx,x,y,s,s,CELL*0.32);bctx.fill();
+    bctx.fillStyle=bodyHsl(light,alpha);       // 纯平色块,仅明度沿身体变化
+    roundRect(bctx,x,y,s,s,CELL*0.28);bctx.fill();
   }
 
   function drawSnake(t){
     const len=snake.length;
-    const baseHue=themeHue();
     const ghost = powers.ghost>0;
     const ghostBlink = ghost && (Math.floor(performance.now()/120)%2===0);
     const alpha = ghost ? (ghostBlink?0.45:0.8) : 1;
@@ -660,30 +662,24 @@
       const pj = off>0 ? i-off : i;
       const prev = prevSnake[Math.min(Math.max(pj,0), prevSnake.length-1)];
       const ratio = i/len;                       // 0(头侧)→1(尾)
-      const hue = (baseHue + ratio*70) % 360;
-      const light = 56 - ratio*14;
+      const light = COL.bodyL + 5 - ratio*10;    // 明度 ±8%(头侧亮、尾侧暗)
       const frac = 1 - ratio*0.35;               // 越靠尾越细
-      drawSegmentCell(prev, cur, t, (x,y)=> snakeCellRect(x,y,frac,hue,light,alpha));
+      drawSegmentCell(prev, cur, t, (x,y)=> snakeCellRect(x,y,frac,light,alpha));
     }
     // 头部
     const headPrev = prevSnake[0];
-    drawSegmentCell(headPrev, snake[0], t, (x,y)=> drawHead(x,y,baseHue,alpha));
+    drawSegmentCell(headPrev, snake[0], t, (x,y)=> drawHead(x,y,alpha));
     bctx.restore();
     bctx.globalAlpha=1;
   }
 
-  function drawHead(gx,gy,hue,alpha){
+  function drawHead(gx,gy,alpha){
     const pad=CELL*0.05;
     const x=gx*CELL+pad, y=gy*CELL+pad, s=CELL-pad*2;
     bctx.globalAlpha=alpha;
-    bctx.shadowColor=hsl(hue,90,60,1); bctx.shadowBlur=CELL*0.55;
-    const g=bctx.createLinearGradient(x,y,x,y+s);
-    g.addColorStop(0,hsl(hue,90,68,alpha));
-    g.addColorStop(1,hsl(hue,85,44,alpha));
-    bctx.fillStyle=g;
-    roundRect(bctx,x,y,s,s,CELL*0.36);bctx.fill();
-    bctx.shadowBlur=0;
-    // 眼睛(朝向当前方向)
+    bctx.fillStyle=COL.head;                     // 蛇头纯平浅灰,无发光
+    roundRect(bctx,x,y,s,s,CELL*0.3);bctx.fill();
+    // 眼睛(朝向当前方向,深色圆点)
     const cx=x+s/2, cy=y+s/2;
     const look = faceDir || dir;
     const ex=look.x, ey=look.y;                  // 方向
@@ -691,11 +687,9 @@
     const perpx=-ey, perpy=ex;                   // 垂直方向
     const eyes=[ [cx+perpx*off+ex*eo, cy+perpy*off+ey*eo],
                  [cx-perpx*off+ex*eo, cy-perpy*off+ey*eo] ];
+    bctx.fillStyle='#15181D';
     for(const [exx,eyy] of eyes){
-      bctx.fillStyle='#fff';
-      bctx.beginPath();bctx.arc(exx,eyy,s*0.12,0,Math.PI*2);bctx.fill();
-      bctx.fillStyle='#0a0a12';
-      bctx.beginPath();bctx.arc(exx+ex*s*0.04,eyy+ey*s*0.04,s*0.06,0,Math.PI*2);bctx.fill();
+      bctx.beginPath();bctx.arc(exx,eyy,s*0.08,0,Math.PI*2);bctx.fill();
     }
     bctx.globalAlpha=1;
   }
@@ -771,7 +765,7 @@
   function renderPowers(){
     // 桌面侧栏
     const active = Object.keys(powers).filter(k=>powers[k]>0);
-    if(active.length===0){ elPowers.innerHTML='<div class="empty">— 暂无 —</div>'; }
+    if(active.length===0){ elPowers.innerHTML='<div class="empty">暂无</div>'; }
     else{
       elPowers.innerHTML = active.map(k=>{
         const r = Math.max(0, powers[k]/DUR[k]);
@@ -881,7 +875,6 @@
     stepMs=BASE_STEP; stepAcc=0; elapsed=0;
     particles=[]; magnetPull._acc=0;
     spawnFood();
-    refreshTheme();
     state='play';
     lastTime=performance.now();
     overlay.classList.remove('show');
@@ -890,7 +883,7 @@
   function togglePause(){
     if(state==='play'){
       state='pause';
-      showOverlay('已暂停', isTouchLayout()?'点击 ⏸ 继续':'按 <kbd>P</kbd> 继续', '继续', false);
+      showOverlay('已暂停', isTouchLayout()?'点击暂停按钮继续':'按 <kbd>P</kbd> 继续', '继续', false);
       updateDpad();
     } else if(state==='pause'){
       state='play';
@@ -902,27 +895,28 @@
   function die(){
     state='over';
     shake(12);
-    burstAt(snake[0].x, snake[0].y, '#ff5a6e', 26);
-    flashBoard('rgba(255,40,70,.35)');
+    burstAt(snake[0].x, snake[0].y, COL.food, 26);
+    flashBoard('#C76A6A');
     const isBest = score>=best && score>0;
     updateHUD();
-    showOverlay('GAME OVER',
-      `得分 <b style="color:#fff">${score.toLocaleString()}</b> · 长度 ${snake.length} · 等级 ${level}`+
-      (isBest? '<br><span style="color:#ffd35c">🏆 新纪录!</span>' : `<br>最高 ${best.toLocaleString()}`),
+    showOverlay('游戏结束',
+      `得分 <b style="color:var(--text)">${score.toLocaleString()}</b> · 长度 ${snake.length} · 等级 ${level}`+
+      (isBest? '<br><span style="color:var(--accent)">新纪录</span>' : `<br>最高 ${best.toLocaleString()}`),
       '再来一局', true);                          // 显示模式选择,可换模式再来
     updateDpad();
   }
   function win(){
     state='win';
-    flashBoard('rgba(52,211,153,.4)');
+    flashBoard('#7FA886');
     updateHUD();
-    showOverlay('🎉 通关!',
-      `你填满了整个棋盘!<br>得分 <b style="color:#fff">${score.toLocaleString()}</b> · 长度 ${snake.length}`,
+    showOverlay('通关',
+      `你填满了整个棋盘!<br>得分 <b style="color:var(--text)">${score.toLocaleString()}</b> · 长度 ${snake.length}`,
       '再来一局', true);
     updateDpad();
   }
+  // 棋盘边框短暂变色提示(无发光阴影)
   function flashBoard(color){
-    boardWrap.animate([{boxShadow:`0 0 0 2px ${color}, 0 0 80px ${color}`},{boxShadow:'none'}],
+    boardWrap.animate([{borderColor:color},{borderColor:'#262B33'}],
       {duration:450, easing:'ease-out'});
   }
   function showOverlay(big,sub,btn,isStart){
@@ -948,10 +942,10 @@
     }
   }
   function setStartOverlay(){
-    ovBig.textContent='NEON SNAKE';
+    ovBig.textContent='贪吃蛇';
     ovBtn.textContent='开始游戏';
     ovSub.innerHTML = isTouchLayout()
-      ? '滑动屏幕或用方向盘控制<br><span style="font-size:12px">连击 · 金苹果 · 道具 · 多模式</span>'
+      ? '滑动屏幕或用摇杆控制<br><span style="font-size:12px">连击 · 金苹果 · 道具 · 多模式</span>'
       : '经典玩法 × 现代创新<br><span style="font-size:12px">方向键 / WASD 转向 · 吃食物变长 · 连击得分</span>';
     overlay.classList.add('start');
     buildModeSelector();
@@ -1083,10 +1077,10 @@
     let avail;
     if(touch){
       const w = vp.w - 16;
-      const h = vp.h - (196 + 96);                // 预留底部摇杆 + 顶部 HUD
+      const h = vp.h - (196 + 140);               // 预留底部摇杆 + 页头 + 顶部 HUD
       avail = Math.max(180, Math.min(w, h));
     } else {
-      avail = Math.min(vp.h - 40, 660);
+      avail = Math.min(vp.h - 104, 660);          // 预留页头高度
     }
     let cell = Math.floor(avail / GRID);
     cell = Math.max(12, Math.min(cell, 34));
@@ -1104,7 +1098,7 @@
     if(!touch){
       const totalW = stage.scrollWidth;
       const totalH = stage.scrollHeight;
-      const scale = Math.min(1, (vp.w-16)/totalW, (vp.h-16)/totalH);
+      const scale = Math.min(1, (vp.w-16)/totalW, (vp.h-80)/totalH);
       stage.style.transform = scale<1 ? `scale(${scale})` : 'none';
     } else {
       stage.style.transform='none';
@@ -1146,7 +1140,6 @@
   food={x:hx0+4,y:cy0}; special=null; specialTimer=0;
   stepMs=BASE_STEP; stepAcc=0; elapsed=0;
   elBest.textContent=best; mBest.textContent=best;
-  refreshTheme();
   setStartOverlay();
   updateHUD(); updateComboBar(); renderPowers(); updateDpad();
   fit();

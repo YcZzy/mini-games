@@ -4,19 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>游戏合集 · Web Games</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2316162a'/%3E%3Crect x='20' y='20' width='26' height='26' rx='5' fill='%23c084fc'/%3E%3Crect x='54' y='20' width='26' height='26' rx='5' fill='%2322d3ee'/%3E%3Crect x='20' y='54' width='26' height='26' rx='5' fill='%23fb923c'/%3E%3Crect x='54' y='54' width='26' height='26' rx='5' fill='%234ade80'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23101318'/%3E%3Crect x='20' y='20' width='26' height='26' rx='5' fill='%23AC8FBF'/%3E%3Crect x='54' y='20' width='26' height='26' rx='5' fill='%237FB4C9'/%3E%3Crect x='20' y='54' width='26' height='26' rx='5' fill='%23C9A178'/%3E%3Crect x='54' y='54' width='26' height='26' rx='5' fill='%238FB48B'/%3E%3C/svg%3E">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   :root{
-    --bg:#f5f6f8; --card:#ffffff; --text:#15171c; --muted:#6b7280;
-    --sub:#4b5563; --border:rgba(0,0,0,.07); --accent:#6366f1; --chip:#f1f2f5;
+    --bg:#0E1013;           /* 页面背景 */
+    --surface:#15181D;      /* 面板/卡片 */
+    --surface-2:#1C2027;    /* 嵌套面板、hover */
+    --border:#262B33;       /* 1px 实线边框 */
+    --border-strong:#343B45;
+    --text:#E7E9EC;
+    --text-2:#9BA1AA;       /* 次级文字 */
+    --text-3:#646B75;       /* 三级文字/小标签 */
+    --accent:#C9B08A;       /* 唯一强调色（香槟暖砂） */
+    --danger:#C76A6A;
+    --ok:#7FA886;
+    --radius:10px; --radius-sm:6px;
   }
   html{ -webkit-text-size-adjust:100%; }
   body{
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
-    background:var(--bg);
-    background-image:radial-gradient(900px 520px at 50% -220px, rgba(99,102,241,.12), transparent 70%);
-    color:var(--text); min-height:100vh; line-height:1.5;
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; line-height:1.5;
+    font-variant-numeric:tabular-nums;
     -webkit-font-smoothing:antialiased;
   }
   .wrap{ max-width:1080px; margin:0 auto; padding:56px 24px 72px; }
@@ -24,60 +33,60 @@
   /* 顶部 */
   header{ text-align:center; margin-bottom:44px; }
   .badge{
-    display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
-    color:var(--accent); background:rgba(99,102,241,.1); border:1px solid rgba(99,102,241,.2);
-    padding:5px 13px; border-radius:999px; letter-spacing:.5px; margin-bottom:18px;
+    display:inline-flex; align-items:center; font-size:11px; font-weight:500;
+    color:var(--text-3); background:var(--surface); border:1px solid var(--border);
+    padding:4px 12px; border-radius:999px; letter-spacing:.08em; margin-bottom:16px;
   }
-  .badge .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
-  h1{ font-size:42px; font-weight:800; letter-spacing:-1.2px; line-height:1.1; }
-  h1 .en{ display:block; font-size:13px; font-weight:600; color:var(--muted);
-    letter-spacing:4px; text-transform:uppercase; margin-top:12px; }
-  .lead{ font-size:15.5px; color:var(--sub); margin-top:16px; }
+  h1{ font-size:26px; font-weight:600; letter-spacing:-.2px; line-height:1.2; }
+  h1 .en{ display:block; font-size:11px; font-weight:500; color:var(--text-3);
+    letter-spacing:.08em; text-transform:uppercase; margin-top:8px; }
+  .lead{ font-size:14px; color:var(--text-2); margin-top:12px; }
 
   /* 网格 */
-  .grid{ display:grid; gap:22px; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); }
+  .grid{ display:grid; gap:20px; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); }
 
   /* 卡片 */
   .card{
-    display:flex; flex-direction:column; background:var(--card); border:1px solid var(--border);
-    border-radius:18px; overflow:hidden; text-decoration:none; color:inherit;
-    box-shadow:0 1px 2px rgba(0,0,0,.04);
-    transition:transform .28s cubic-bezier(.2,.7,.2,1), box-shadow .28s, border-color .28s;
+    display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); overflow:hidden; text-decoration:none; color:inherit;
+    transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease;
   }
-  .card:hover{ transform:translateY(-6px); box-shadow:0 20px 44px rgba(20,20,45,.16); border-color:transparent; }
-  .cover{ aspect-ratio:16/10; overflow:hidden; position:relative; background:#0c0c16; }
-  .cover svg{ display:block; width:100%; height:100%; transition:transform .45s cubic-bezier(.2,.7,.2,1); }
-  .card:hover .cover svg{ transform:scale(1.05); }
-  .body{ padding:18px 18px 6px; flex:1; }
-  .card-head{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
-  .card-head h2{ font-size:19px; font-weight:700; letter-spacing:-.3px; }
-  .card-head .en{ font-size:11px; font-weight:600; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; }
-  .desc{ font-size:13.5px; color:var(--sub); margin-top:8px; line-height:1.62; }
-  .tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:13px; }
-  .tag{ font-size:11px; padding:3px 9px; border-radius:999px; background:var(--chip); color:var(--sub); }
+  .card:hover{ transform:translateY(-2px); border-color:var(--border-strong); box-shadow:0 1px 2px rgba(0,0,0,.3); }
+  .card:focus-visible{ outline:1px solid var(--accent); outline-offset:2px; }
+  .cover{ aspect-ratio:16/10; overflow:hidden; background:#101318; border-bottom:1px solid var(--border); }
+  .cover svg{ display:block; width:100%; height:100%; }
+  .body{ padding:16px 16px 4px; flex:1; }
+  .card-head{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .card-head h2{ font-size:16px; font-weight:600; letter-spacing:-.2px; }
+  .card-head .en{ font-size:11px; font-weight:500; color:var(--text-3); letter-spacing:.08em; text-transform:uppercase; }
+  .desc{ font-size:13px; color:var(--text-2); margin-top:8px; line-height:1.6; }
+  .tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .tag{ font-size:11px; padding:2px 8px; border-radius:var(--radius-sm); background:var(--surface-2); color:var(--text-2); }
   .foot{
     display:flex; align-items:center; justify-content:space-between;
-    padding:14px 18px; margin-top:8px; border-top:1px solid #f0f1f4;
-    font-size:13px; font-weight:600; color:var(--accent);
+    padding:12px 16px; margin-top:8px; border-top:1px solid var(--border);
+    font-size:13px; font-weight:500; color:var(--text-2);
+    transition:color .16s ease;
   }
-  .foot .arrow{ transition:transform .28s; }
-  .card:hover .foot .arrow{ transform:translateX(4px); }
+  .card:hover .foot{ color:var(--text); }
+  .foot .arrow{ transition:transform .16s ease; }
+  .card:hover .foot .arrow{ transform:translateX(2px); }
 
   /* 占位卡 */
   .card.soon{
     align-items:center; justify-content:center; text-align:center; min-height:260px;
-    background:transparent; border:1.5px dashed rgba(0,0,0,.12); box-shadow:none; cursor:default; padding:24px;
+    background:transparent; border:1px dashed var(--border-strong); box-shadow:none; cursor:default; padding:24px;
   }
-  .card.soon:hover{ transform:none; box-shadow:none; border-color:rgba(99,102,241,.35); }
-  .card.soon .plus{ font-size:34px; color:#c2c5cc; font-weight:300; line-height:1; margin-bottom:12px; }
-  .card.soon .t{ font-size:14px; font-weight:600; color:var(--muted); }
-  .card.soon .s{ font-size:12px; color:#9ca3af; margin-top:5px; }
+  .card.soon:hover{ transform:none; box-shadow:none; border-color:var(--border-strong); }
+  .card.soon .plus{ font-size:30px; color:var(--text-3); font-weight:300; line-height:1; margin-bottom:12px; }
+  .card.soon .t{ font-size:13px; font-weight:500; color:var(--text-2); }
+  .card.soon .s{ font-size:12px; color:var(--text-3); margin-top:4px; }
 
-  footer{ text-align:center; margin-top:48px; font-size:12.5px; color:#9ca3af; }
+  footer{ text-align:center; margin-top:48px; font-size:12px; color:var(--text-3); }
 
   @media (max-width:560px){
     .wrap{ padding:40px 16px 56px; }
-    h1{ font-size:32px; }
+    h1{ font-size:22px; }
     .grid{ gap:16px; }
   }
 </style>
@@ -85,7 +94,7 @@
 <body>
   <div class="wrap">
     <header>
-      <span class="badge"><span class="dot"></span>零依赖 · 开箱即玩</span>
+      <span class="badge">零依赖 · 开箱即玩</span>
       <h1>游戏合集<span class="en">Web Games</span></h1>
       <p class="lead">精致的网页小游戏,点开即玩,无需安装。</p>
     </header>
@@ -96,23 +105,19 @@
   </div>
 
 <script>
-  // 用方块数据生成卡片封面 SVG(深色网格 + 霓虹圆角方块)
+  // 用方块数据生成卡片封面 SVG(深色棋盘底 + 低饱和纯平色块)
   function blocksCover(blocks){
-    const C=40, P=2, S=36, R=7;          // 单元格 40px,方块 36px,圆角 7
+    const C=40, P=2, S=36, R=5;          // 单元格 40px,方块 36px,圆角 5
     const W=320, H=200;
     let lines='';
     for(let x=0;x<=W;x+=C) lines+=`<line x1="${x}" y1="0" x2="${x}" y2="${H}"/>`;
     for(let y=0;y<=H;y+=C) lines+=`<line x1="0" y1="${y}" x2="${W}" y2="${y}"/>`;
     const cells = blocks.map(([c,r,col])=>
-      `<rect x="${c*C+P}" y="${r*C+P}" width="${S}" height="${S}" rx="${R}" fill="${col}"/>`+
-      `<rect x="${c*C+P+5}" y="${r*C+P+5}" width="${S-10}" height="8" rx="4" fill="rgba(255,255,255,.25)"/>`
+      `<rect x="${c*C+P}" y="${r*C+P}" width="${S}" height="${S}" rx="${R}" fill="${col}" stroke="rgba(0,0,0,.25)" stroke-width="1"/>`
     ).join('');
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-      <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#16162a"/><stop offset="1" stop-color="#0a0a12"/>
-      </linearGradient></defs>
-      <rect width="${W}" height="${H}" fill="url(#bg)"/>
-      <g stroke="rgba(255,255,255,.045)" stroke-width="1">${lines}</g>
+      <rect width="${W}" height="${H}" fill="#101318"/>
+      <g stroke="#1A1E24" stroke-width="1">${lines}</g>
       ${cells}
     </svg>`;
   }
@@ -120,41 +125,39 @@
   // 游戏列表:新增游戏只需在此追加一项
   const games = [
     {
-      title:'俄罗斯方块', en:'Neon Tetris', path:'tetris/index.html',
-      desc:'经典 SRS 旋转 · T-Spin · Combo · 霓虹风现代化界面,支持触屏。',
+      title:'俄罗斯方块', en:'Tetris', path:'tetris/index.html',
+      desc:'经典 SRS 旋转 · T-Spin · Combo 连击 · 支持触屏。',
       tags:['益智','经典','单人'],
       cover: blocksCover([
-        // 下落中的 T 块(紫)
-        [3,0,'#c084fc'],[2,1,'#c084fc'],[3,1,'#c084fc'],[4,1,'#c084fc'],
+        // 下落中的 T 块
+        [3,0,'#AC8FBF'],[2,1,'#AC8FBF'],[3,1,'#AC8FBF'],[4,1,'#AC8FBF'],
         // 堆叠
-        [1,3,'#4ade80'],[2,3,'#fb923c'],[4,3,'#22d3ee'],[5,3,'#fde047'],
-        [1,4,'#3b82f6'],[2,4,'#fb923c'],[3,4,'#f87171'],[4,4,'#22d3ee'],[5,4,'#fde047'],[6,4,'#4ade80'],
+        [1,3,'#8FB48B'],[2,3,'#C9A178'],[4,3,'#7FB4C9'],[5,3,'#CBBD7E'],
+        [1,4,'#7E93C4'],[2,4,'#C9A178'],[3,4,'#C48A8A'],[4,4,'#7FB4C9'],[5,4,'#CBBD7E'],[6,4,'#8FB48B'],
       ]),
     },
     {
-      title:'贪吃蛇', en:'Neon Snake', path:'snake/index.html',
-      desc:'四种模式 · 道具连击 · 金苹果 · 平滑插值移动,霓虹风现代化界面,支持触屏。',
+      title:'贪吃蛇', en:'Snake', path:'snake/index.html',
+      desc:'四种模式 · 道具连击 · 金苹果 · 平滑插值移动,支持触屏。',
       tags:['休闲','经典','单人'],
       cover: blocksCover([
-        // 蜿蜒的蛇身(尾→头,青→绿渐变)
-        [1,1,'#22d3ee'],[2,1,'#22d3ee'],[3,1,'#2dd4bf'],
-        [3,2,'#34d399'],
-        [3,3,'#34d399'],[4,3,'#4ade80'],[5,3,'#4ade80'],
-        // 红色食物
-        [6,3,'#ff5a6e'],
+        // 蜿蜒的蛇身(尾→头,沿身体微调明度)
+        [1,1,'#839A88'],[2,1,'#839A88'],[3,1,'#8FA694'],
+        [3,2,'#8FA694'],
+        [3,3,'#9BB2A0'],[4,3,'#9BB2A0'],[5,3,'#DFE3E8'],
+        // 食物
+        [6,3,'#C76A6A'],
       ]),
     },
     {
-      title:'扫雷', en:'Neon Minesweeper', path:'minesweeper/index.html',
+      title:'扫雷', en:'Minesweeper', path:'minesweeper/index.html',
       desc:'经典三档难度 · 首点安全 · 旗子标记 · 数字格快捷展开,支持触屏。',
       tags:['益智','经典','单人'],
       cover: blocksCover([
-        // 翻开的数字区
-        [1,1,'#e7e0d2'],[2,1,'#e7e0d2'],[3,1,'#f59e0b'],[4,1,'#e7e0d2'],[5,1,'#e7e0d2'],
-        [1,2,'#e7e0d2'],[2,2,'#2dd4bf'],[3,2,'#e7e0d2'],[4,2,'#ef4444'],[5,2,'#e7e0d2'],
-        [1,3,'#e7e0d2'],[2,3,'#e7e0d2'],[3,3,'#a3e635'],[4,3,'#e7e0d2'],[5,3,'#e7e0d2'],
-        // 未翻开的边缘
-        [0,1,'#94a3b8'],[6,1,'#94a3b8'],[0,2,'#94a3b8'],[6,2,'#94a3b8'],[0,3,'#94a3b8'],[6,3,'#94a3b8'],
+        // 未翻开的格子,夹杂数字格、旗子与雷
+        [0,1,'#1C2027'],[1,1,'#1C2027'],[2,1,'#7E93C4'],[3,1,'#1C2027'],[4,1,'#C9B08A'],[5,1,'#1C2027'],[6,1,'#1C2027'],
+        [0,2,'#1C2027'],[1,2,'#8FB48B'],[4,2,'#1C2027'],[5,2,'#7E93C4'],[6,2,'#1C2027'],
+        [0,3,'#1C2027'],[1,3,'#1C2027'],[2,3,'#C48A8A'],[3,3,'#1C2027'],[4,3,'#1C2027'],[5,3,'#C76A6A'],[6,3,'#1C2027'],
       ]),
     },
   ];

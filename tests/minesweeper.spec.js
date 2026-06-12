@@ -6,7 +6,7 @@ test('homepage links to minesweeper', async ({ page }) => {
   await expect(page.getByRole('link', { name: '扫雷' })).toBeVisible();
   await page.getByRole('link', { name: '扫雷' }).click();
   await expect(page).toHaveURL(/\/minesweeper\/index\.html$/);
-  await expect(page.getByRole('heading', { name: '霓虹扫雷' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '扫雷' })).toBeVisible();
 });
 
 test('classic difficulties use fixed board sizes and mine counts', async ({ page }) => {
