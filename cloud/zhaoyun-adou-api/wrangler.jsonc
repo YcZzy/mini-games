@@ -1,0 +1,51 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "zhaoyun-adou-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "api.euv.pp.ua",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zhaoyun-adou",
+      "database_id": "a2139abd-925f-44c4-83f6-4fc00d34f08e",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PVP_ROOM",
+        "class_name": "PvpRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "pvp-room-v1",
+      "new_sqlite_classes": ["PvpRoom"]
+    }
+  ],
+  "vars": {
+    "SESSION_TTL_DAYS": "90",
+    "PVP_RECONNECT_SECONDS": "30",
+    "PVP_ROOM_TTL_HOURS": "6"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01
+    }
+  }
+}

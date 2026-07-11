@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <title>赵云与阿斗</title>
+    <link rel="stylesheet" href="browser-cloud.css?v=cloud1">
+    <link rel="stylesheet" href="browser-pvp.css?v=pvp6">
+    <style>
+        /* 桌面端：居中手机竖屏壳；手机端：铺满可见视口 */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0b0b0f;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #phone-shell {
+            position: relative;
+            /* 设计比 640:1386 ≈ 现代全面屏手机 */
+            width: min(100vw, calc(100vh * 640 / 1386));
+            height: min(100vh, calc(100vw * 1386 / 640));
+            max-width: 100vw;
+            max-height: 100vh;
+            background: #000;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow:
+                0 0 0 10px #1c1c22,
+                0 0 0 12px #3a3a44,
+                0 24px 80px rgba(0, 0, 0, 0.55);
+            flex-shrink: 0;
+        }
+        /* 顶部听筒装饰，纯视觉 */
+        #phone-shell::before {
+            content: "";
+            position: absolute;
+            z-index: 5;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 92px;
+            height: 8px;
+            border-radius: 999px;
+            background: #15151a;
+            pointer-events: none;
+        }
+        @media (max-aspect-ratio: 640/1386) {
+            #phone-shell {
+                border-radius: 0;
+                box-shadow: none;
+            }
+            #phone-shell::before { display: none; }
+        }
+        @media (max-width: 768px), (pointer: coarse) {
+            html, body {
+                position: fixed;
+                inset: 0;
+                width: var(--app-width, 100vw);
+                height: var(--app-height, 100dvh);
+                min-height: -webkit-fill-available;
+                background: #000;
+            }
+            body { display: block; }
+            #phone-shell {
+                position: fixed;
+                inset: 0;
+                width: var(--app-width, 100vw);
+                height: var(--app-height, 100dvh);
+                max-width: none;
+                max-height: none;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            #phone-shell::before { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="phone-shell" aria-label="手机竖屏模拟"></div>
+    <!--
+        运行说明：
+        1) 需通过本地 HTTP 服务器访问（fetch 不能读 file://）。
+           例：在“游戏合集”根目录运行 `python3 -m http.server 8080`，再浏览器打开 http://localhost:8080/zhaoyun-adou/index.html
+        2) 顺序：GameGlobal → wx 垫片 → game.js（含 weapp-adapter + Laya + 游戏逻辑）。
+    -->
+    <script>
+        // 最先运行：捕获启动期错误，便于排障。
+        window.addEventListener('error', function (e) {
+            window.__lastError = {
+                msg: e.message, filename: e.filename, line: e.lineno, col: e.colno,
+                stack: e.error && e.error.stack
+            };
+            console.error('[BOOT ERROR]', e.message, '\n', e.error && e.error.stack);
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+            window.__lastError = { msg: 'unhandledrejection: ' + (e.reason && (e.reason.message || String(e.reason))), stack: e.reason && e.reason.stack };
+            console.error('[BOOT REJECT]', window.__lastError.msg, '\n', e.reason && e.reason.stack);
+        });
+        // 手机浏览器地址栏 / Fullscreen 会改变可见视口高度；用 visualViewport 同步真实可见尺寸，避免左右黑边。
+        // 同时强制同步 Laya stage 尺寸，否则进入全屏后 CSS 画布变高，但 stage 仍停留在旧高度，底部按钮会点不到。
+        (function syncVisibleViewport() {
+            var root = document.documentElement;
+            var lastWidth = 0;
+            var lastHeight = 0;
+            var syncTimer = 0;
+            function isMobileLayout() {
+                return window.matchMedia && window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
+            }
+            function currentSize() {
+                var vv = window.visualViewport;
+                return {
+                    width: Math.round((vv && vv.width) || window.innerWidth || document.documentElement.clientWidth),
+                    height: Math.round((vv && vv.height) || window.innerHeight || document.documentElement.clientHeight)
+                };
+            }
+            function syncLayaStage(width, height) {
+                if (!isMobileLayout()) return;
+                var L = window.Laya;
+                if (!L || !L.stage) return;
+                try {
+                    var pixelRatio = (L.Browser && L.Browser.pixelRatio) || window.devicePixelRatio || 1;
+                    // Laya 的 Browser.clientHeight 在 Android Chrome 地址栏/Fullscreen 变化时可能还是旧值；先覆盖，避免后续 updateCanvasSize 回退。
+                    if (L.Browser) {
+                        L.Browser.clientWidth = width;
+                        L.Browser.clientHeight = height;
+                        L.Browser.width = Math.round(width * pixelRatio);
+                        L.Browser.height = Math.round(height * pixelRatio);
+                    }
+                    L.stage.setScreenSize(Math.round(width * pixelRatio), Math.round(height * pixelRatio));
+                } catch (e) {}
+            }
+            function apply() {
+                var size = currentSize();
+                if (size.width <= 0 || size.height <= 0) return;
+                lastWidth = size.width;
+                lastHeight = size.height;
+                root.style.setProperty('--app-width', size.width + 'px');
+                root.style.setProperty('--app-height', size.height + 'px');
+                syncLayaStage(size.width, size.height);
+                clearTimeout(syncTimer);
+                syncTimer = setTimeout(function () { syncLayaStage(lastWidth, lastHeight); }, 120);
+            }
+            window.__syncGameViewport = apply;
+            apply();
+            var readyTimer = setInterval(function () {
+                apply();
+                if (window.Laya && window.Laya.stage) clearInterval(readyTimer);
+            }, 100);
+            setTimeout(function () { clearInterval(readyTimer); }, 10000);
+            window.addEventListener('resize', apply, { passive: true });
+            window.addEventListener('fullscreenchange', apply, { passive: true });
+            window.addEventListener('webkitfullscreenchange', apply, { passive: true });
+            window.addEventListener('orientationchange', function () { setTimeout(apply, 50); setTimeout(apply, 300); }, { passive: true });
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', apply, { passive: true });
+                window.visualViewport.addEventListener('scroll', apply, { passive: true });
+            }
+        })();
+
+
+        // weapp-adapter 依赖 GameGlobal 作为“平台全局对象”。浏览器中令其指向 window。
+        window.GameGlobal = window;
+        // 部分适配层会读取 __devtoolssubContext；不定义即走非子上下文路径。
+    </script>
+    <script src="fullscreen-toggle.js?v=cheat6"></script>
+    <script src="wx-shim.js?v=cloud2"></script>
+    <script src="mini-game-loader.js?v=cheat6"></script>
+    <script src="laya-interceptor.js?v=cheat6"></script>
+    <script src="cloud-config.js?v=cloud4"></script>
+    <script src="browser-cloud.js?v=cloud2"></script>
+    <script src="browser-pvp.js?v=pvp6"></script>
+    <script>
+        // 必须先完成玩家身份确认和云/本地存档合并，再启动游戏，避免默认存档覆盖云进度。
+        (async function bootAfterCloudLogin() {
+            function loadScript(src) {
+                return new Promise(function (resolve, reject) {
+                    var script = document.createElement('script');
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = function () { reject(new Error('加载失败：' + src)); };
+                    document.body.appendChild(script);
+                });
+            }
+
+            try {
+                window.ZhaoPvp.beforeCloudStart();
+                await window.ZhaoCloud.start();
+                window.ZhaoPvp.afterCloudStart();
+                await loadScript('game.js?v=cloud1');
+                await loadScript('input-fix.js?v=cheat6');
+                await loadScript('unlock-features.js?v=cheat7');
+                window.ZhaoCloud.onGameLoaded();
+                window.ZhaoPvp.onGameLoaded();
+            } catch (error) {
+                console.error('[cloud boot]', error);
+                window.ZhaoCloud.showFatal(error && error.message || '游戏启动失败，请刷新重试');
+            }
+        })();
+    </script>
+</body>
+</html>

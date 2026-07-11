@@ -1,0 +1,4 @@
+# Generate private values for local development, for example: openssl rand -hex 32
+PIN_PEPPER=replace-with-a-random-secret
+# Must match coturn's static-auth-secret when testing TURN relay.
+TURN_SECRET=replace-with-the-coturn-shared-secret

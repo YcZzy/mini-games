@@ -1,0 +1,431 @@
+#zhao-pvp-entry {
+    position: absolute;
+    z-index: 850;
+    left: 50%;
+    bottom: 4.2%;
+    transform: translateX(-50%);
+    min-width: 150px;
+    border: 2px solid #392719;
+    border-radius: 999px;
+    padding: 10px 18px;
+    color: #fff6d5;
+    background: linear-gradient(#b94a36, #81291f);
+    box-shadow: 0 4px 0 #42150f, 0 8px 18px rgba(0, 0, 0, 0.3);
+    font: 800 17px/1 "STKaiti", "KaiTi", serif;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+#zhao-pvp-entry span { margin-right: 5px; color: #ffd75c; }
+#zhao-pvp-entry[hidden] { display: none; }
+
+#zhao-pvp-layer,
+#zhao-pvp-room-layer,
+#zhao-pvp-battle-loading,
+#zhao-pvp-pause,
+#zhao-pvp-result {
+    position: absolute;
+    z-index: 1150;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 20px;
+    color: #2d2118;
+    background: rgba(18, 20, 20, 0.88);
+    font-family: "STKaiti", "KaiTi", "Noto Serif SC", serif;
+    touch-action: manipulation;
+    user-select: text;
+}
+
+#zhao-pvp-room-layer {
+    background:
+        radial-gradient(circle at 50% 12%, rgba(255, 245, 204, 0.98), rgba(232, 215, 166, 0.96) 42%, rgba(62, 59, 53, 0.98) 100%);
+}
+
+.zhao-pvp-card {
+    position: relative;
+    width: min(100%, 440px);
+    max-height: 94%;
+    box-sizing: border-box;
+    overflow: auto;
+    border: 3px solid #372b21;
+    border-radius: 18px;
+    padding: 22px;
+    background: #f6edd3;
+    box-shadow: 0 10px 0 #6f5338, 0 22px 50px rgba(0, 0, 0, 0.4);
+}
+
+.zhao-pvp-card h1 {
+    margin: 0 0 12px;
+    font-size: 30px;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.zhao-pvp-brand {
+    margin-bottom: 5px;
+    color: #8f2f20;
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-align: center;
+}
+
+.zhao-pvp-copy {
+    margin: 0 0 17px;
+    color: #685b4e;
+    font: 14px/1.55 system-ui, sans-serif;
+    text-align: center;
+}
+
+.zhao-pvp-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    border: 2px solid #3a2b1e;
+    border-radius: 50%;
+    padding: 0;
+    color: #2a1c10;
+    background: #e7ddc4;
+    box-shadow: 0 3px 0 #8f8069;
+    font: 900 24px/36px system-ui, sans-serif;
+    cursor: pointer;
+}
+
+.zhao-pvp-primary,
+.zhao-pvp-secondary,
+.zhao-pvp-link-button {
+    width: 100%;
+    box-sizing: border-box;
+    border: 2px solid #3a2b1e;
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: #2a1c10;
+    background: #f2c84b;
+    box-shadow: 0 4px 0 #936c21;
+    font: 800 17px/1.1 "STKaiti", "KaiTi", serif;
+    cursor: pointer;
+}
+
+.zhao-pvp-secondary {
+    background: #e7ddc4;
+    box-shadow: 0 4px 0 #8f8069;
+}
+
+.zhao-pvp-primary:disabled,
+.zhao-pvp-secondary:disabled,
+.zhao-pvp-link-button:disabled {
+    cursor: wait;
+    opacity: 0.5;
+}
+
+.zhao-pvp-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 18px 0 10px;
+    color: #8c7b67;
+    font: 13px/1 system-ui, sans-serif;
+}
+
+.zhao-pvp-divider::before,
+.zhao-pvp-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #bba98e;
+}
+
+.zhao-pvp-field {
+    display: block;
+    margin: 10px 0 12px;
+    font-weight: 800;
+}
+
+.zhao-pvp-field span {
+    display: block;
+    margin-bottom: 6px;
+}
+
+.zhao-pvp-field input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 2px solid #77634c;
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: #241b14;
+    background: #fffaf0;
+    font: 800 22px/1 system-ui, sans-serif;
+    letter-spacing: 0.2em;
+    text-align: center;
+    outline: none;
+    user-select: text;
+}
+
+.zhao-pvp-field input:focus {
+    border-color: #b3542f;
+    box-shadow: 0 0 0 3px rgba(179, 84, 47, 0.18);
+}
+
+.zhao-pvp-stats,
+.zhao-pvp-status,
+.zhao-pvp-room-message {
+    margin: 14px 0 0;
+    font: 14px/1.5 system-ui, sans-serif;
+    text-align: center;
+}
+
+.zhao-pvp-stats { color: #685b4e; }
+.zhao-pvp-status { min-height: 22px; color: #9a3024; font-weight: 700; }
+.zhao-pvp-status[data-kind="ok"] { color: #28612d; }
+
+.zhao-pvp-room-card { width: min(100%, 470px); }
+
+.zhao-pvp-room-code {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 11px 0 9px;
+}
+
+.zhao-pvp-room-code span {
+    color: #766653;
+    font: 13px/1 system-ui, sans-serif;
+}
+
+.zhao-pvp-room-code strong {
+    margin-top: 4px;
+    color: #8f2f20;
+    font: 900 42px/1 system-ui, sans-serif;
+    letter-spacing: 0.18em;
+    text-indent: 0.18em;
+}
+
+.zhao-pvp-link-button {
+    padding: 8px 12px;
+    background: #e9dfc7;
+    box-shadow: 0 3px 0 #94846d;
+    font-size: 14px;
+}
+
+.zhao-pvp-player-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin: 17px 0 12px;
+}
+
+.zhao-pvp-player {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) 12px;
+    align-items: center;
+    gap: 10px;
+    border: 2px solid #aa9578;
+    border-radius: 12px;
+    padding: 10px;
+    background: #fff8e5;
+    font-family: system-ui, sans-serif;
+}
+
+.zhao-pvp-player.is-self {
+    border-color: #b6402e;
+    background: #ffe5b0;
+}
+
+.zhao-pvp-player.is-empty {
+    display: flex;
+    flex-direction: column;
+    min-height: 50px;
+    justify-content: center;
+    color: #776b5d;
+    text-align: center;
+}
+
+.zhao-pvp-player.is-empty span { margin-top: 4px; font-size: 12px; }
+
+.zhao-pvp-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    color: #fff;
+    background: #4f79a8;
+    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.35);
+    font-size: 18px;
+    font-weight: 900;
+}
+
+.zhao-pvp-player:nth-child(2) .zhao-pvp-avatar { background: #aa4f43; }
+.zhao-pvp-player-copy { min-width: 0; }
+.zhao-pvp-player-copy b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zhao-pvp-player-copy span { display: block; margin-top: 4px; color: #786b5d; font-size: 12px; }
+.zhao-pvp-player i { width: 10px; height: 10px; border-radius: 50%; background: #9d9181; }
+.zhao-pvp-player i.is-online { background: #48a154; box-shadow: 0 0 0 3px rgba(72, 161, 84, 0.18); }
+
+.zhao-pvp-room-message {
+    min-height: 21px;
+    margin-bottom: 12px;
+    color: #705f4e;
+    font-weight: 700;
+}
+
+.zhao-pvp-text-button {
+    display: block;
+    margin: 14px auto 0;
+    border: 0;
+    padding: 5px 12px;
+    color: #8f3024;
+    background: transparent;
+    font: 700 14px/1.2 system-ui, sans-serif;
+    cursor: pointer;
+}
+
+#zhao-pvp-battle-loading {
+    z-index: 1180;
+    background: rgba(18, 20, 20, 0.78);
+    pointer-events: all;
+}
+
+.zhao-pvp-loading-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    border: 2px solid #c8ae79;
+    border-radius: 16px;
+    padding: 22px 28px;
+    color: #fff4d6;
+    background: rgba(47, 35, 25, 0.95);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.42);
+    text-align: center;
+}
+
+.zhao-pvp-loading-ranks {
+    display: grid;
+    grid-template-columns: minmax(90px, 1fr) auto minmax(90px, 1fr);
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+.zhao-pvp-loading-ranks span {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    border-radius: 9px;
+    padding: 8px 10px;
+    color: #ffe8a8;
+    background: rgba(255, 255, 255, 0.08);
+    font: 800 14px/1.2 system-ui, sans-serif;
+}
+.zhao-pvp-loading-ranks small { color: #cdbf9f; font-size: 10px; font-weight: 700; }
+.zhao-pvp-loading-ranks i { color: #d9b76e; font: 900 13px/1 system-ui, sans-serif; }
+
+#zhao-pvp-hud {
+    position: absolute;
+    z-index: 900;
+    top: 2.3%;
+    left: 2.5%;
+    width: 57%;
+    color: #fff8e8;
+    font-family: system-ui, sans-serif;
+    pointer-events: none;
+}
+
+.zhao-pvp-hud-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid rgba(255, 238, 194, 0.58);
+    border-radius: 9px;
+    padding: 6px 8px;
+    background: rgba(30, 23, 18, 0.86);
+    text-shadow: 0 1px 2px #000;
+}
+
+.zhao-pvp-peer-name { display: flex; min-width: 0; flex-direction: column; gap: 1px; }
+.zhao-pvp-hud-row b { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.zhao-pvp-peer-name small { overflow: hidden; color: #f2d28a; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.zhao-pvp-peer-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.zhao-pvp-peer-meta em { color: #f2d28a; font-size: 9px; font-style: normal; white-space: nowrap; }
+.zhao-pvp-peer-meta i { color: #b9dfb1; font-size: 8px; font-style: normal; white-space: nowrap; }
+.zhao-pvp-hearts { color: #ff675b; font-size: 15px; letter-spacing: 0; white-space: nowrap; }
+.zhao-pvp-hud-row.is-self { display: none; }
+
+#zhao-pvp-pause {
+    z-index: 1280;
+    background: rgba(9, 10, 12, 0.75);
+}
+
+#zhao-pvp-pause > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    border-radius: 15px;
+    padding: 22px 26px;
+    color: #fff4d6;
+    background: rgba(49, 36, 26, 0.96);
+    text-align: center;
+}
+
+#zhao-pvp-pause span { color: #eacb87; font: 13px/1 system-ui, sans-serif; }
+
+#zhao-pvp-result {
+    z-index: 1320;
+    background: rgba(12, 13, 14, 0.86);
+}
+
+.zhao-pvp-result-card { text-align: center; }
+.zhao-pvp-result-card h1 { margin-top: 12px; }
+.zhao-pvp-result-card p { margin: 0 0 18px; color: #685b4e; font: 14px/1.5 system-ui, sans-serif; }
+.zhao-pvp-result-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 82px;
+    height: 82px;
+    margin: 0 auto;
+    border: 4px double #6e4b27;
+    border-radius: 50%;
+    color: #fff2be;
+    background: #a13b2a;
+    box-shadow: 0 5px 0 #5c2118;
+    font-size: 43px;
+    font-weight: 900;
+}
+.zhao-pvp-result-card.is-win .zhao-pvp-result-mark { background: #a56c18; box-shadow: 0 5px 0 #5f3a0a; }
+
+.zhao-pvp-toast {
+    position: absolute;
+    z-index: 1400;
+    left: 50%;
+    bottom: 28px;
+    max-width: calc(100% - 40px);
+    transform: translateX(-50%);
+    border-radius: 999px;
+    padding: 10px 16px;
+    color: #fff;
+    background: rgba(30, 24, 19, 0.94);
+    font: 14px/1.35 system-ui, sans-serif;
+    text-align: center;
+    pointer-events: none;
+}
+
+@media (max-width: 420px) {
+    #zhao-pvp-layer,
+    #zhao-pvp-room-layer,
+    #zhao-pvp-battle-loading,
+    #zhao-pvp-pause,
+    #zhao-pvp-result { padding: 14px; }
+    .zhao-pvp-card { padding: 20px 17px; }
+    .zhao-pvp-card h1 { font-size: 27px; }
+    .zhao-pvp-room-code strong { font-size: 38px; }
+    #zhao-pvp-entry { min-width: 136px; padding: 9px 15px; font-size: 15px; }
+}

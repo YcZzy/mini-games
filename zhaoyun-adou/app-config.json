@@ -1,0 +1,30 @@
+{
+  "deviceOrientation": "portrait",
+  "iOSHighPerformance": true,
+  "showStatusBar": false,
+  "networkTimeout": {
+    "request": 10000,
+    "connectSocket": 10000,
+    "uploadFile": 10000,
+    "downloadFile": 10000
+  },
+  "__warning__": "invalid game.json [\"iOSHighPerformance\"]",
+  "subPackages": [
+    {
+      "name": "resources/anim",
+      "root": "resources/anim/"
+    },
+    {
+      "name": "resources/music",
+      "root": "resources/music/"
+    },
+    {
+      "name": "resources/sound",
+      "root": "resources/sound/"
+    },
+    {
+      "name": "resources/img",
+      "root": "resources/img/"
+    }
+  ]
+}

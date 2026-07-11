@@ -1,0 +1,252 @@
+#zhao-cloud-layer,
+#zhao-rank-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 24px;
+    color: #2d2118;
+    background:
+        radial-gradient(circle at 50% 12%, rgba(255, 245, 204, 0.96), rgba(232, 215, 166, 0.94) 42%, rgba(77, 71, 61, 0.96) 100%);
+    font-family: "STKaiti", "KaiTi", "Noto Serif SC", serif;
+    touch-action: manipulation;
+    user-select: text;
+}
+
+.zhao-cloud-card,
+.zhao-rank-card {
+    width: min(100%, 440px);
+    max-height: 92%;
+    box-sizing: border-box;
+    overflow: auto;
+    border: 3px solid #372b21;
+    border-radius: 18px;
+    padding: 24px;
+    background: #f6edd3;
+    box-shadow: 0 10px 0 #6f5338, 0 22px 50px rgba(0, 0, 0, 0.38);
+}
+
+.zhao-cloud-brand {
+    margin-bottom: 5px;
+    color: #8f2f20;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-align: center;
+}
+
+.zhao-cloud-card h1,
+.zhao-rank-card h1 {
+    margin: 0 0 18px;
+    font-size: 30px;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.zhao-cloud-field {
+    display: block;
+    margin: 15px 0;
+    font-weight: 700;
+}
+
+.zhao-cloud-field span {
+    display: block;
+    margin-bottom: 7px;
+}
+
+.zhao-cloud-field input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 2px solid #77634c;
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: #241b14;
+    background: #fffaf0;
+    font: 700 18px/1.2 system-ui, sans-serif;
+    outline: none;
+    user-select: text;
+}
+
+.zhao-cloud-field input:focus {
+    border-color: #b3542f;
+    box-shadow: 0 0 0 3px rgba(179, 84, 47, 0.18);
+}
+
+.zhao-cloud-primary,
+.zhao-cloud-secondary,
+.zhao-rank-close {
+    border: 2px solid #3a2b1e;
+    border-radius: 10px;
+    padding: 11px 16px;
+    color: #2a1c10;
+    background: #f2c84b;
+    box-shadow: 0 4px 0 #936c21;
+    font: 800 17px/1.1 "STKaiti", "KaiTi", serif;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.zhao-cloud-primary {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.zhao-cloud-primary:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+.zhao-cloud-secondary {
+    background: #e7ddc4;
+    box-shadow: 0 4px 0 #8f8069;
+}
+
+.zhao-cloud-hint,
+.zhao-cloud-status {
+    margin: 13px 0 0;
+    font: 14px/1.55 system-ui, sans-serif;
+    text-align: center;
+}
+
+.zhao-cloud-hint { color: #685b4e; }
+.zhao-cloud-status { min-height: 22px; color: #9a3024; font-weight: 700; }
+.zhao-cloud-status[data-kind="ok"] { color: #28612d; }
+
+.zhao-cloud-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+}
+
+.zhao-cloud-spinner {
+    width: 38px;
+    height: 38px;
+    border: 5px solid rgba(67, 48, 31, 0.18);
+    border-top-color: #9a3024;
+    border-radius: 50%;
+    animation: zhao-cloud-spin 0.8s linear infinite;
+}
+
+@keyframes zhao-cloud-spin { to { transform: rotate(360deg); } }
+
+#zhao-rank-layer {
+    z-index: 1100;
+    align-items: stretch;
+    background: rgba(18, 20, 20, 0.82);
+}
+
+.zhao-rank-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 500px);
+    max-height: 100%;
+    margin: auto;
+    padding: 20px 16px 16px;
+}
+
+.zhao-rank-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 50%;
+    font: 900 25px/38px system-ui, sans-serif;
+}
+
+.zhao-rank-subtitle {
+    margin: -10px 0 14px;
+    color: #6c5b48;
+    font: 14px/1.4 system-ui, sans-serif;
+    text-align: center;
+}
+
+.zhao-rank-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-height: 110px;
+    overflow: auto;
+    padding: 2px 3px 8px;
+}
+
+.zhao-rank-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    border: 2px solid #9e8a6e;
+    border-radius: 11px;
+    padding: 10px;
+    background: #fff8e5;
+    font-family: system-ui, sans-serif;
+}
+
+.zhao-rank-row.is-current {
+    border-color: #b6402e;
+    background: #ffe5b0;
+    box-shadow: inset 0 0 0 2px rgba(182, 64, 46, 0.14);
+}
+
+.zhao-rank-position {
+    font-size: 21px;
+    font-weight: 900;
+    text-align: center;
+}
+
+.zhao-rank-player { min-width: 0; }
+.zhao-rank-name {
+    overflow: hidden;
+    font-size: 17px;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.zhao-rank-record { margin-top: 4px; color: #716353; font-size: 12px; }
+.zhao-rank-tier { color: #8c2f21; font-size: 15px; font-weight: 900; text-align: right; }
+.zhao-rank-level { margin-top: 3px; color: #6c5b48; font-size: 12px; text-align: right; }
+
+.zhao-rank-empty {
+    margin: auto;
+    padding: 28px 16px;
+    color: #6c5b48;
+    font: 15px/1.6 system-ui, sans-serif;
+    text-align: center;
+}
+
+.zhao-rank-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 13px;
+}
+
+.zhao-cloud-toast {
+    position: absolute;
+    z-index: 1200;
+    left: 50%;
+    bottom: 28px;
+    max-width: calc(100% - 40px);
+    transform: translateX(-50%);
+    border-radius: 999px;
+    padding: 10px 16px;
+    color: #fff;
+    background: rgba(30, 24, 19, 0.92);
+    font: 14px/1.35 system-ui, sans-serif;
+    text-align: center;
+    pointer-events: none;
+}
+
+@media (max-width: 420px) {
+    #zhao-cloud-layer,
+    #zhao-rank-layer { padding: 16px; }
+    .zhao-cloud-card { padding: 21px 18px; }
+    .zhao-cloud-card h1,
+    .zhao-rank-card h1 { font-size: 27px; }
+}

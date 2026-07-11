@@ -1,6 +1,6 @@
 # 游戏合集
 
-精致的 HTML5 单文件游戏合集,零依赖,开箱即用。
+精致的 HTML5 小游戏合集；大部分游戏为纯静态资源，「赵云与阿斗」另带云存档、排行榜和好友实时对战服务。
 
 打开根目录的 `index.html` 即为游戏首页(卡片墙导航),点击卡片进入对应游戏。
 
@@ -15,6 +15,9 @@
 │   └── index.html    # 贪吃蛇
 ├── minesweeper/
 │   └── index.html    # 扫雷
+├── zhaoyun-adou/
+│   ├── index.html    # 赵云与阿斗
+│   └── resources/    # LayaAir 游戏资源
 └── README.md
 ```
 
@@ -69,13 +72,33 @@
   - 移动端:`轻点` 翻开,`长按` 插旗
 - **技术栈**: 原生 HTML/CSS/JavaScript,DOM 网格,IIFE 封装,无外部依赖
 
+### 🐉 赵云与阿斗 (Zhao Yun & A Dou)
+- **路径**: `zhaoyun-adou/index.html`
+- **特性**:
+  - 解包微信小游戏的浏览器适配版
+  - LayaAir 3 引擎,竖屏手机比例显示
+  - 内置 `wx.*` 垫片、模块加载器与输入修复
+  - 支持桌面鼠标与移动端触摸
+  - 安卓 Chrome 支持设置页全屏开关
+  - 昵称 + PIN 登录、跨设备云存档
+  - 浏览器独立总排行榜，不再使用原小游戏排行榜
+  - 6 位房间码/邀请链接的好友 1v1 塔防生存赛
+  - 实时同步生命和波次，断线 30 秒内可重连
+- **操作**:
+  - 桌面端用鼠标点击
+  - 触屏设备用触摸操作
+- **技术栈**: LayaAir 3,微信小游戏浏览器垫片,Cloudflare Worker + D1 + Durable Objects/WebSocket
+
 ## 本地预览
 
-直接双击 `index.html` 即可运行;如需模拟线上环境(干净 URL),在项目根目录启动静态服务器:
+首页和单文件小游戏可直接双击 `index.html` 预览;`赵云与阿斗` 需要通过 HTTP 服务器访问,因为浏览器不允许 `file://` 直接加载其资源:
 
 ```bash
 python3 -m http.server 8000
+# 另开终端启动赵云云服务
+npm run dev:cloud-api
 # 浏览器打开 http://localhost:8000
+# 赵云与阿斗: http://localhost:8000/zhaoyun-adou/index.html
 ```
 
 ## 部署上线
@@ -104,7 +127,7 @@ vercel --prod   # 发布到正式域名
 ## 开发规范
 
 - 每个游戏独立文件夹,主文件命名为 `index.html`
-- 单文件架构,CSS/JS 内联,零外部依赖
+- 原生小游戏优先单文件架构,CSS/JS 内联;引擎小游戏可保留必要静态资源
 - 代码风格:简洁、可读、注释清晰
 - 必须通过对抗式 bug 审查,确保无已知缺陷
 
