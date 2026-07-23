@@ -1,13 +1,18 @@
 /**
  * GM 功能面板
  *
- * 在设置窗口中注入"GM 功能"入口，点击后打开 HTML 覆盖层，
- * 可直接修改 localStorage 中的 playerData 存档。
+ * 分两层：
+ * 1) 读拦截层（脚本加载时立即执行，早于 game.js）：
+ *    拦截 wx.getStorageSync / wx.getStorage / Storage.prototype.getItem，
+ *    每次游戏读取 playerData 时注入 GM 数值。这样即使游戏自身覆盖存档，
+ *    GM 修改也会在每次读取时重新注入。
+ * 2) UI 层（轮询 Laya.stage）：
+ *    在设置窗口注入"GM 功能"入口，HTML 覆盖层配置各项数值。
  *
  * 功能：
  * - 金币、等级、章节、连胜等数值修改
- * - 武器碎片自动补全
- * - 主动/被动技能配置
+ * - 武器碎片自动补全（40 种武器）
+ * - 主动/被动技能配置（自动去重过滤）
  * - 头像框全解锁
  * - 体力值修改
  * - 注册时间修改（解锁连续登录天数）
@@ -17,68 +22,7 @@
     'use strict';
 
     var SAVE_KEY = 'playerData';
-
-    // ---- 工具函数 ----
-
-    function findNode(root, name) {
-        if (!root) return null;
-        if (root.name === name) return root;
-        var children = root._children || root._childs || [];
-        for (var i = 0; i < children.length; i++) {
-            var found = findNode(children[i], name);
-            if (found) return found;
-        }
-        return null;
-    }
-
-    function shell() {
-        return document.getElementById('phone-shell') || document.body;
-    }
-
-    function readSave() {
-        try {
-            var raw = localStorage.getItem(SAVE_KEY);
-            if (!raw) return {};
-            return JSON.parse(raw);
-        } catch (e) {
-            return {};
-        }
-    }
-
-    function writeSave(data) {
-        try {
-            localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-            return true;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    function showToast(message) {
-        var old = document.querySelector('.zhao-cloud-toast');
-        if (old) old.remove();
-        var toast = document.createElement('div');
-        toast.className = 'zhao-cloud-toast';
-        toast.style.zIndex = '9999';
-        toast.textContent = message;
-        shell().appendChild(toast);
-        setTimeout(function () { toast.remove(); }, 2600);
-    }
-
-    // ---- 数值修改 ----
-
-    var ForceValue = false;
-
-    function setNumber(data, key, value) {
-        if (ForceValue) {
-            data[key] = value;
-            return;
-        }
-        var old = Number(data[key]) || 0;
-        if (old < value) {
-            data[key] = value;
-        }
-    }
+    var CONFIG_KEY = 'zhaoyun.gm.config';
 
     // ---- 武器列表 (来自原脚本) ----
     var WeaponList = [
@@ -88,7 +32,7 @@
         [32,50],[33,50],[34,50],[35,50],[36,50],[37,50],[38,50],[39,50],[40,50],[41,50],[42,50],[43,50]
     ];
 
-    // ---- 技能名称映射 ----
+    // ---- 技能名称 ----
     var SkillName = {
         2:"毛笔", 3:"练兵符", 4:"神兵符", 5:"包子", 6:"御敌千里",
         7:"砚台", 8:"陷阱", 9:"地雷", 10:"速攻符", 11:"降妖符",
@@ -96,98 +40,9 @@
         16:"续命丹", 17:"大补丸", 18:"泥潭", 19:"洛阳铲",
         20:"召唤陨石", 21:"垃圾桶", 22:"升职令", 24:"摸金校尉"
     };
+    var BanSkill = [1, 23];
 
-    var BanSkill = [1, 23]; // 推土车、行军丹
-
-    // ---- GM 修改逻辑 ----
-
-    function applyGM(data, config) {
-        var current = Date.now();
-
-        // 金币
-        if (config.goldEnabled) {
-            setNumber(data, 'gd', config.gold);
-        }
-
-        // 等级相关
-        if (config.levelEnabled) {
-            setNumber(data, 'cs', config.level);   // 等级
-            setNumber(data, 'ga', config.level);   // 昨日等级
-            setNumber(data, 'wn', config.level);   // 胜利次数
-            setNumber(data, 'ws', config.level);   // 连胜次数
-            setNumber(data, 'ls', config.level);   // 历史最高
-            setNumber(data, 'cld', Math.max(99, Math.ceil(config.level / 10))); // 章节
-        }
-
-        // 武器
-        if (config.weaponEnabled) {
-            if (!Array.isArray(data.wf)) data.wf = [];
-            var weaponMap = {};
-            data.wf.forEach(function (item) {
-                if (Array.isArray(item) && item.length > 1) {
-                    weaponMap[item[0]] = item;
-                }
-            });
-            WeaponList.forEach(function (item) {
-                if (weaponMap[item[0]]) {
-                    weaponMap[item[0]][1] = ForceValue ? config.weaponCount : Math.max(Number(weaponMap[item[0]][1]) || 0, config.weaponCount);
-                } else {
-                    data.wf.push([item[0], config.weaponCount]);
-                }
-            });
-        }
-
-        // 技能
-        if (config.skillEnabled) {
-            var skillList = [];
-            var skillUsed = {};
-            function addSkill(id) {
-                id = Number(id);
-                if (!id || skillList.length >= 8 || BanSkill.indexOf(id) >= 0 || skillUsed[id]) return;
-                skillUsed[id] = true;
-                skillList.push([id, 1, current - (skillList.length + 1) * 300000]);
-            }
-            (config.activeSkills || []).slice(0, 2).forEach(addSkill);
-            (config.passiveSkills || []).slice(0, 6).forEach(addSkill);
-            if (skillList.length > 0) {
-                data.ps = skillList;
-            }
-        }
-
-        // 头像
-        if (config.avatarEnabled) {
-            if (!Array.isArray(data.aul)) {
-                data.aul = Array(16).fill(1);
-            } else {
-                data.aul = data.aul.map(function () { return 1; });
-            }
-        }
-
-        // 体力
-        if (config.staminaEnabled) {
-            setNumber(data, 'sm', config.stamina);
-        }
-
-        // 注册时间
-        if (config.registerEnabled) {
-            var target = current - config.registerDays * 86400000 - 300000;
-            if (ForceValue || !data.rt || data.rt > target) {
-                data.rt = target;
-            }
-        }
-
-        // 固定解锁项
-        data.hfb = true;  // 新手引导
-        data.pap = true;  // 隐私协议
-        data.wfr = true;  // 武器功能
-        data.wdg = true;  // 引导
-        data.afu = false;
-    }
-
-    // ---- UI: HTML 覆盖层 ----
-
-    var currentConfig = {};
-
+    // ---- 默认 GM 配置 ----
     function defaultConfig() {
         return {
             goldEnabled: true,
@@ -210,10 +65,9 @@
 
     function loadConfig() {
         try {
-            var saved = localStorage.getItem('zhaoyun.gm.config');
-            if (saved) {
-                var parsed = JSON.parse(saved);
-                // 合并默认值，防止缺少新字段
+            var raw = localStorage.getItem(CONFIG_KEY);
+            if (raw) {
+                var parsed = JSON.parse(raw);
                 var def = defaultConfig();
                 Object.keys(def).forEach(function (k) {
                     if (!(k in parsed)) parsed[k] = def[k];
@@ -224,16 +78,227 @@
         return defaultConfig();
     }
 
+    // ---- 数值修改 ----
+    function setNumber(data, key, value, force) {
+        if (force) {
+            data[key] = value;
+            return;
+        }
+        var old = Number(data[key]) || 0;
+        if (old < value) {
+            data[key] = value;
+        }
+    }
+
+    // ---- GM 注入逻辑（应用 GM 配置到存档数据上）----
+    function injectGM(data) {
+        if (!data || typeof data !== 'object') return data;
+
+        var config = loadConfig();
+        var force = config.forceMode;
+        var now = Date.now();
+
+        try {
+            // 金币
+            if (config.goldEnabled) {
+                setNumber(data, 'gd', config.gold, force);
+            }
+
+            // 等级
+            if (config.levelEnabled) {
+                setNumber(data, 'cs', config.level, force);
+                setNumber(data, 'ga', config.level, force);
+                setNumber(data, 'wn', config.level, force);
+                setNumber(data, 'ws', config.level, force);
+                setNumber(data, 'ls', config.level, force);
+                setNumber(data, 'cld', Math.max(99, Math.ceil(config.level / 10)), force);
+            }
+
+            // 武器碎片
+            if (config.weaponEnabled) {
+                if (!Array.isArray(data.wf)) data.wf = [];
+                var weaponMap = {};
+                data.wf.forEach(function (item) {
+                    if (Array.isArray(item) && item.length > 1) {
+                        weaponMap[item[0]] = item;
+                    }
+                });
+                WeaponList.forEach(function (item) {
+                    if (weaponMap[item[0]]) {
+                        weaponMap[item[0]][1] = force
+                            ? config.weaponCount
+                            : Math.max(Number(weaponMap[item[0]][1]) || 0, config.weaponCount);
+                    } else {
+                        data.wf.push([item[0], config.weaponCount]);
+                    }
+                });
+            }
+
+            // 技能
+            if (config.skillEnabled) {
+                var skillList = [];
+                var skillUsed = {};
+                function addSkill(id) {
+                    id = Number(id);
+                    if (!id || skillList.length >= 8 || BanSkill.indexOf(id) >= 0 || skillUsed[id]) return;
+                    skillUsed[id] = true;
+                    skillList.push([id, 1, now - (skillList.length + 1) * 300000]);
+                }
+                (config.activeSkills || []).slice(0, 2).forEach(addSkill);
+                (config.passiveSkills || []).slice(0, 6).forEach(addSkill);
+                if (skillList.length > 0) {
+                    data.ps = skillList;
+                }
+            }
+
+            // 头像框
+            if (config.avatarEnabled) {
+                if (!Array.isArray(data.aul)) {
+                    data.aul = Array(16).fill(1);
+                } else {
+                    data.aul = data.aul.map(function () { return 1; });
+                }
+            }
+
+            // 体力
+            if (config.staminaEnabled) {
+                setNumber(data, 'sm', config.stamina, force);
+            }
+
+            // 注册时间
+            if (config.registerEnabled) {
+                var target = now - config.registerDays * 86400000 - 300000;
+                if (force || !data.rt || data.rt > target) {
+                    data.rt = target;
+                }
+            }
+
+            // 固定解锁
+            data.hfb = true;
+            data.pap = true;
+            data.wfr = true;
+            data.wdg = true;
+            data.afu = false;
+        } catch (e) {
+            console.warn('[gm-panel] injectGM error:', e);
+        }
+
+        return data;
+    }
+
+    // =====================================================
+    // Part 1: 读路径拦截 (立即执行，在 game.js 加载前生效)
+    // =====================================================
+
+    function installReadInterceptor() {
+        // --- 拦截 wx.getStorageSync ---
+        if (window.wx && window.wx.getStorageSync) {
+            var _origGetStorageSync = window.wx.getStorageSync;
+            window.wx.getStorageSync = function (key) {
+                var value = _origGetStorageSync.call(window.wx, key);
+                if (String(key) === SAVE_KEY && value) {
+                    try {
+                        var obj = typeof value === 'string' ? JSON.parse(value) : value;
+                        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                            obj = injectGM(obj);
+                            return typeof value === 'string' ? JSON.stringify(obj) : obj;
+                        }
+                    } catch (e) {}
+                }
+                return value;
+            };
+        }
+
+        // --- 拦截 wx.getStorage (异步) ---
+        if (window.wx && window.wx.getStorage) {
+            var _origGetStorage = window.wx.getStorage;
+            window.wx.getStorage = function (opts) {
+                if (opts && String(opts.key) === SAVE_KEY) {
+                    var origSuccess = opts.success;
+                    opts.success = function (res) {
+                        try {
+                            if (res && res.data !== undefined && res.data !== null && res.data !== '') {
+                                var obj = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+                                if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                                    obj = injectGM(obj);
+                                    res.data = typeof res.data === 'string' ? JSON.stringify(obj) : obj;
+                                }
+                            }
+                        } catch (e) {}
+                        if (origSuccess) origSuccess(res);
+                    };
+                    return _origGetStorage.call(window.wx, opts);
+                }
+                return _origGetStorage.call(window.wx, opts);
+            };
+        }
+
+        // --- 拦截 Storage.prototype.getItem（兜底直接 localStorage 读取）---
+        try {
+            var _origGetItem = Storage.prototype.getItem;
+            if (!_origGetItem.__gmPatched) {
+                Storage.prototype.getItem = function (key) {
+                    var value = _origGetItem.call(this, key);
+                    if (String(key) === SAVE_KEY && value) {
+                        try {
+                            var obj = JSON.parse(value);
+                            if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                                obj = injectGM(obj);
+                                return JSON.stringify(obj);
+                            }
+                        } catch (e) {}
+                    }
+                    return value;
+                };
+                Storage.prototype.getItem.__gmPatched = true;
+            }
+        } catch (e) {
+            console.warn('[gm-panel] Storage.getItem patch failed:', e);
+        }
+
+        console.log('[gm-panel] 读拦截已安装');
+    }
+
+    // 立即安装读拦截器
+    installReadInterceptor();
+
+    // =====================================================
+    // Part 2: UI 层 (轮询 Laya.stage，注入设置入口和面板)
+    // =====================================================
+
+    function findNode(root, name) {
+        if (!root) return null;
+        if (root.name === name) return root;
+        var children = root._children || root._childs || [];
+        for (var i = 0; i < children.length; i++) {
+            var found = findNode(children[i], name);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function shell() {
+        return document.getElementById('phone-shell') || document.body;
+    }
+
+    function showToast(message) {
+        var old = document.querySelector('.zhao-cloud-toast');
+        if (old) old.remove();
+        var toast = document.createElement('div');
+        toast.className = 'zhao-cloud-toast';
+        toast.style.zIndex = '9999';
+        toast.textContent = message;
+        shell().appendChild(toast);
+        setTimeout(function () { toast.remove(); }, 2600);
+    }
+
     function saveConfig(config) {
         try {
-            localStorage.setItem('zhaoyun.gm.config', JSON.stringify(config));
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
         } catch (e) {}
     }
 
-    function buildPanel() {
-        var config = currentConfig;
-
-        // 技能 checkbox HTML
+    function buildPanel(config) {
         function skillCheckboxes(selected, max) {
             var allSkills = Object.keys(SkillName).map(Number).filter(function (id) {
                 return BanSkill.indexOf(id) < 0;
@@ -241,11 +306,7 @@
             var html = '';
             allSkills.forEach(function (id) {
                 var checked = selected.indexOf(id) >= 0 ? ' checked' : '';
-                var disabled = '';
-                // 如果已经选了 max 个且当前项未被选中，则禁用
-                if (selected.length >= max && selected.indexOf(id) < 0) {
-                    disabled = ' disabled';
-                }
+                var disabled = selected.length >= max && selected.indexOf(id) < 0 ? ' disabled' : '';
                 html += '<label class="gm-skill-label' + (selected.indexOf(id) >= 0 ? ' is-on' : '') + disabled + '">';
                 html += '<input type="checkbox" value="' + id + '"' + checked + disabled + '>';
                 html += SkillName[id] || ('技能' + id);
@@ -259,29 +320,25 @@
             '  <button class="gm-panel-close" id="gm-panel-close" type="button" aria-label="关闭">×</button>',
             '  <h1>⚙ GM 功能面板</h1>',
 
-            // 金币
             '  <fieldset class="gm-fieldset">',
             '    <legend>💰 金币</legend>',
             '    <label class="gm-toggle"><input type="checkbox" id="gm-gold-enabled"' + (config.goldEnabled ? ' checked' : '') + '> 启用</label>',
             '    <label class="gm-field">数量 <input type="number" id="gm-gold" value="' + config.gold + '" min="0" step="100000"></label>',
             '  </fieldset>',
 
-            // 等级
             '  <fieldset class="gm-fieldset">',
             '    <legend>📈 等级</legend>',
             '    <label class="gm-toggle"><input type="checkbox" id="gm-level-enabled"' + (config.levelEnabled ? ' checked' : '') + '> 启用</label>',
             '    <label class="gm-field">等级 (含连胜/最高) <input type="number" id="gm-level" value="' + config.level + '" min="1" max="999"></label>',
             '  </fieldset>',
 
-            // 武器
             '  <fieldset class="gm-fieldset">',
             '    <legend>🗡 武器碎片</legend>',
             '    <label class="gm-toggle"><input type="checkbox" id="gm-weapon-enabled"' + (config.weaponEnabled ? ' checked' : '') + '> 启用</label>',
             '    <label class="gm-field">碎片数量 <input type="number" id="gm-weapon-count" value="' + config.weaponCount + '" min="1" max="999"></label>',
-            '    <p class="gm-hint">自动补全全部武器，已有武器保留较高碎片数</p>',
+            '    <p class="gm-hint">每次读档自动补全全部武器，已有武器保留较高碎片数</p>',
             '  </fieldset>',
 
-            // 技能
             '  <fieldset class="gm-fieldset">',
             '    <legend>📜 技能</legend>',
             '    <label class="gm-toggle"><input type="checkbox" id="gm-skill-enabled"' + (config.skillEnabled ? ' checked' : '') + '> 启用</label>',
@@ -295,20 +352,17 @@
             '    </div>',
             '  </fieldset>',
 
-            // 头像
             '  <fieldset class="gm-fieldset">',
             '    <legend>🖼 头像框</legend>',
             '    <label class="gm-toggle"><input type="checkbox" id="gm-avatar-enabled"' + (config.avatarEnabled ? ' checked' : '') + '> 启用 (解锁全部)</label>',
             '  </fieldset>',
 
-            // 体力
             '  <fieldset class="gm-fieldset">',
             '    <legend>⚡ 体力</legend>',
             '    <label class="gm-toggle"><input type="checkbox" id="gm-stamina-enabled"' + (config.staminaEnabled ? ' checked' : '') + '> 启用</label>',
             '    <label class="gm-field">体力值 <input type="number" id="gm-stamina" value="' + config.stamina + '" min="1" max="999"></label>',
             '  </fieldset>',
 
-            // 注册时间
             '  <fieldset class="gm-fieldset">',
             '    <legend>📅 注册天数</legend>',
             '    <label class="gm-toggle"><input type="checkbox" id="gm-register-enabled"' + (config.registerEnabled ? ' checked' : '') + '> 启用</label>',
@@ -316,16 +370,14 @@
             '    <p class="gm-hint">影响连续登录天数判定，建议 ≥7 天</p>',
             '  </fieldset>',
 
-            // 模式
             '  <fieldset class="gm-fieldset">',
             '    <legend>🔧 修改模式</legend>',
             '    <label class="gm-toggle' + (config.forceMode ? ' is-warn' : '') + '"><input type="checkbox" id="gm-force-mode"' + (config.forceMode ? ' checked' : '') + '> 强制覆盖 (默认安全模式：只补不降)</label>',
             '  </fieldset>',
 
-            // 操作按钮
             '  <div class="gm-actions">',
-            '    <button class="gm-btn-primary" id="gm-apply" type="button">应用修改</button>',
-            '    <button class="gm-btn-secondary" id="gm-reload" type="button">刷新页面生效</button>',
+            '    <button class="gm-btn-primary" id="gm-apply" type="button">保存并刷新</button>',
+            '    <button class="gm-btn-secondary" id="gm-reload" type="button">仅刷新页面</button>',
             '    <button class="gm-btn-danger" id="gm-reset" type="button">重置存档</button>',
             '  </div>',
 
@@ -334,77 +386,23 @@
         ].join('');
     }
 
-    function syncConfigFromDOM() {
-        var c = currentConfig;
-        var goldEnabled = document.getElementById('gm-gold-enabled');
-        var gold = document.getElementById('gm-gold');
-        var levelEnabled = document.getElementById('gm-level-enabled');
-        var level = document.getElementById('gm-level');
-        var weaponEnabled = document.getElementById('gm-weapon-enabled');
-        var weaponCount = document.getElementById('gm-weapon-count');
-        var skillEnabled = document.getElementById('gm-skill-enabled');
-        var avatarEnabled = document.getElementById('gm-avatar-enabled');
-        var staminaEnabled = document.getElementById('gm-stamina-enabled');
-        var stamina = document.getElementById('gm-stamina');
-        var registerEnabled = document.getElementById('gm-register-enabled');
-        var registerDays = document.getElementById('gm-register-days');
-        var forceMode = document.getElementById('gm-force-mode');
-
-        if (goldEnabled) c.goldEnabled = goldEnabled.checked;
-        if (gold) c.gold = parseInt(gold.value, 10) || 0;
-        if (levelEnabled) c.levelEnabled = levelEnabled.checked;
-        if (level) c.level = parseInt(level.value, 10) || 1;
-        if (weaponEnabled) c.weaponEnabled = weaponEnabled.checked;
-        if (weaponCount) c.weaponCount = parseInt(weaponCount.value, 10) || 1;
-        if (skillEnabled) c.skillEnabled = skillEnabled.checked;
-        if (avatarEnabled) c.avatarEnabled = avatarEnabled.checked;
-        if (staminaEnabled) c.staminaEnabled = staminaEnabled.checked;
-        if (stamina) c.stamina = parseInt(stamina.value, 10) || 1;
-        if (registerEnabled) c.registerEnabled = registerEnabled.checked;
-        if (registerDays) c.registerDays = parseInt(registerDays.value, 10) || 1;
-        if (forceMode) c.forceMode = forceMode.checked;
-
-        // 同步技能选择
-        var activeCheckboxes = document.querySelectorAll('#gm-active-skills input[type="checkbox"]');
-        var passiveCheckboxes = document.querySelectorAll('#gm-passive-skills input[type="checkbox"]');
-        c.activeSkills = [];
-        c.passiveSkills = [];
-        activeCheckboxes.forEach(function (cb) {
-            if (cb.checked) c.activeSkills.push(parseInt(cb.value, 10));
-        });
-        passiveCheckboxes.forEach(function (cb) {
-            if (cb.checked) c.passiveSkills.push(parseInt(cb.value, 10));
-        });
-    }
-
     function showPanel() {
-        // 移除已有面板
         var existing = document.getElementById('gm-panel-layer');
-        if (existing) {
-            existing.remove();
-            return;
-        }
+        if (existing) { existing.remove(); return; }
 
-        currentConfig = loadConfig();
+        var config = loadConfig();
 
         var layer = document.createElement('div');
         layer.id = 'gm-panel-layer';
-        layer.innerHTML = buildPanel();
+        layer.innerHTML = buildPanel(config);
         shell().appendChild(layer);
 
-        ForceValue = currentConfig.forceMode;
-
-        // 绑定事件
+        // 关闭
         document.getElementById('gm-panel-close').addEventListener('click', function () {
             layer.remove();
         });
 
-        // 强制模式切换时更新全局变量
-        document.getElementById('gm-force-mode').addEventListener('change', function () {
-            ForceValue = this.checked;
-        });
-
-        // 技能 checkbox 交互限制
+        // 技能 checkbox 限制
         function bindSkillGrid(gridId, maxCount) {
             var grid = document.getElementById(gridId);
             if (!grid) return;
@@ -419,7 +417,6 @@
                     showToast('最多选择 ' + maxCount + ' 个技能');
                     return;
                 }
-                // 更新样式
                 checkboxes.forEach(function (cb) {
                     var label = cb.parentElement;
                     if (cb.checked) {
@@ -427,59 +424,65 @@
                         label.classList.remove('disabled');
                     } else {
                         label.classList.remove('is-on');
-                        if (checked.length >= maxCount) {
-                            label.classList.add('disabled');
-                        } else {
-                            label.classList.remove('disabled');
-                        }
+                        label.classList.add('disabled', checked.length >= maxCount ? 'disabled' : '');
+                        if (checked.length < maxCount) label.classList.remove('disabled');
                     }
                 });
             });
+            // 初始化 disabled 状态
+            (function () {
+                var checkboxes = grid.querySelectorAll('input[type="checkbox"]');
+                var checkedCount = 0;
+                checkboxes.forEach(function (cb) { if (cb.checked) checkedCount++; });
+                if (checkedCount >= maxCount) {
+                    checkboxes.forEach(function (cb) {
+                        if (!cb.checked) cb.parentElement.classList.add('disabled');
+                    });
+                }
+            })();
         }
         bindSkillGrid('gm-active-skills', 2);
         bindSkillGrid('gm-passive-skills', 6);
 
-        // 应用按钮
+        // 保存并刷新
         document.getElementById('gm-apply').addEventListener('click', function () {
-            syncConfigFromDOM();
-            ForceValue = currentConfig.forceMode;
-            saveConfig(currentConfig);
+            var c = config;
+            var el;
 
-            var save = readSave();
-            if (!save || typeof save !== 'object') {
-                save = {};
-            }
+            el = document.getElementById('gm-gold-enabled'); if (el) c.goldEnabled = el.checked;
+            el = document.getElementById('gm-gold'); if (el) c.gold = parseInt(el.value, 10) || 0;
+            el = document.getElementById('gm-level-enabled'); if (el) c.levelEnabled = el.checked;
+            el = document.getElementById('gm-level'); if (el) c.level = parseInt(el.value, 10) || 1;
+            el = document.getElementById('gm-weapon-enabled'); if (el) c.weaponEnabled = el.checked;
+            el = document.getElementById('gm-weapon-count'); if (el) c.weaponCount = parseInt(el.value, 10) || 1;
+            el = document.getElementById('gm-skill-enabled'); if (el) c.skillEnabled = el.checked;
+            el = document.getElementById('gm-avatar-enabled'); if (el) c.avatarEnabled = el.checked;
+            el = document.getElementById('gm-stamina-enabled'); if (el) c.staminaEnabled = el.checked;
+            el = document.getElementById('gm-stamina'); if (el) c.stamina = parseInt(el.value, 10) || 1;
+            el = document.getElementById('gm-register-enabled'); if (el) c.registerEnabled = el.checked;
+            el = document.getElementById('gm-register-days'); if (el) c.registerDays = parseInt(el.value, 10) || 1;
+            el = document.getElementById('gm-force-mode'); if (el) c.forceMode = el.checked;
 
-            // 确保基础结构
-            if (typeof save._nick !== 'string') save._nick = '';
+            c.activeSkills = [];
+            c.passiveSkills = [];
+            document.querySelectorAll('#gm-active-skills input[type="checkbox"]').forEach(function (cb) {
+                if (cb.checked) c.activeSkills.push(parseInt(cb.value, 10));
+            });
+            document.querySelectorAll('#gm-passive-skills input[type="checkbox"]').forEach(function (cb) {
+                if (cb.checked) c.passiveSkills.push(parseInt(cb.value, 10));
+            });
 
-            applyGM(save, currentConfig);
-
-            if (writeSave(save)) {
-                var status = document.getElementById('gm-status');
-                if (status) {
-                    status.textContent = '✓ 修改已写入存档。部分数值需刷新页面后生效。';
-                    status.style.color = '#28612d';
-                }
-                showToast('GM 修改已应用');
-            } else {
-                var statusEl = document.getElementById('gm-status');
-                if (statusEl) {
-                    statusEl.textContent = '✗ 写入失败，请重试';
-                    statusEl.style.color = '#9a3024';
-                }
-                showToast('写入失败');
-            }
+            saveConfig(c);
+            showToast('GM 配置已保存，正在刷新…');
+            setTimeout(function () { location.reload(); }, 400);
         });
 
-        // 刷新按钮
+        // 仅刷新
         document.getElementById('gm-reload').addEventListener('click', function () {
-            syncConfigFromDOM();
-            saveConfig(currentConfig);
             location.reload();
         });
 
-        // 重置按钮
+        // 重置存档
         document.getElementById('gm-reset').addEventListener('click', function () {
             if (confirm('确定要清除存档吗？此操作不可撤销！')) {
                 localStorage.removeItem(SAVE_KEY);
@@ -499,11 +502,8 @@
         if (!settingWnd || settingWnd.__gmEntryAdded) return false;
         settingWnd.__gmEntryAdded = true;
 
-        // 使用简单的文字按钮，类似全屏开关的位置
         var CHECK_BORDER = 'resources/img/mainUI/setting/checkBoxBorder.png';
-        var CHECK_OK = 'resources/img/mainUI/setting/checkOK.png';
 
-        // 放在全屏开关下方
         var box = new L.Box();
         box.name = 'gmEntryBox';
         box.pos(271, 430);
@@ -521,7 +521,6 @@
         border.anchorY = 0.5;
         border.centerY = 0;
 
-        // 用一个小图标标记 GM，而不是 checkbox 勾选标记
         var icon = new L.Label('🔧');
         icon.name = 'gmEntryIcon';
         icon.pos(3, -2);

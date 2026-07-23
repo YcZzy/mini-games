@@ -188,6 +188,7 @@
     <script src="cloud-config.js?v=cloud4"></script>
     <script src="browser-cloud.js?v=cloud2"></script>
     <script src="browser-pvp.js?v=pvp6"></script>
+    <script src="gm-panel.js?v=gm2"></script>
     <script>
         // 启动流程：单机模式下 ZhaoCloud.start() 直接返回，无需等待登录。
         // 线上模式需先完成玩家身份确认和存档合并，再启动游戏。
@@ -209,7 +210,6 @@
                 await loadScript('game.js?v=cloud1');
                 await loadScript('input-fix.js?v=cheat6');
                 await loadScript('unlock-features.js?v=cheat7');
-                await loadScript('gm-panel.js?v=gm1');
                 window.ZhaoCloud.onGameLoaded();
                 window.ZhaoPvp.onGameLoaded();
             } catch (error) {
