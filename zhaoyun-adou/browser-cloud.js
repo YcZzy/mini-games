@@ -393,9 +393,7 @@
         if (startPromise) return startPromise;
         startPromise = (async function () {
             var params = new URLSearchParams(location.search);
-            if (!apiBase || params.get('cloud') === 'off') {
-                // 单机模式：无云后端配置或显式要求离线。
-                // 存档走 localStorage，数据仅在本浏览器中保留。
+            if (params.get('cloud') === 'off') {
                 state.enabled = false;
                 var local = readLocalSave();
                 state.player = { id: 'offline', nickname: local && local._nick || '离线玩家' };
@@ -504,7 +502,7 @@
         var list = layer.querySelector('.zhao-rank-list');
 
         if (!state.enabled) {
-            list.innerHTML = '<div class="zhao-rank-empty">当前为单机模式，排行榜不可用。</div>';
+            list.innerHTML = '<div class="zhao-rank-empty">当前为离线测试模式，云排行榜不可用。</div>';
             return;
         }
         if (!state.token) {
