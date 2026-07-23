@@ -9,6 +9,7 @@
     <title>赵云与阿斗</title>
     <link rel="stylesheet" href="browser-cloud.css?v=cloud1">
     <link rel="stylesheet" href="browser-pvp.css?v=pvp6">
+    <link rel="stylesheet" href="gm-panel.css?v=gm1">
     <style>
         /* 桌面端：居中手机竖屏壳；手机端：铺满可见视口 */
         html, body {
@@ -93,9 +94,13 @@
     <div id="phone-shell" aria-label="手机竖屏模拟"></div>
     <!--
         运行说明：
-        1) 需通过本地 HTTP 服务器访问（fetch 不能读 file://）。
-           例：在“游戏合集”根目录运行 `python3 -m http.server 8080`，再浏览器打开 http://localhost:8080/zhaoyun-adou/index.html
-        2) 顺序：GameGlobal → wx 垫片 → game.js（含 weapp-adapter + Laya + 游戏逻辑）。
+        - 本地开发：在项目根目录运行 `python3 -m http.server 8080`，浏览器打开
+          http://localhost:8080/mini-games/zhaoyun-adou/index.html
+        - 线上部署：将所有文件上传到任意静态托管（GitHub Pages / Vercel / Cloudflare Pages 等），
+          直接访问 index.html 即可。
+        - 默认以单机模式运行，存档保存在浏览器 localStorage 中。
+        - 如需云存档/排行榜/好友对战，部署云后端后配置 window.ZHAOYUN_CLOUD_CONFIG.apiBaseUrl。
+        - 加载顺序：GameGlobal → wx 垫片 → game.js（含 weapp-adapter + Laya + 游戏逻辑）。
     -->
     <script>
         // 最先运行：捕获启动期错误，便于排障。
@@ -184,7 +189,8 @@
     <script src="browser-cloud.js?v=cloud2"></script>
     <script src="browser-pvp.js?v=pvp6"></script>
     <script>
-        // 必须先完成玩家身份确认和云/本地存档合并，再启动游戏，避免默认存档覆盖云进度。
+        // 启动流程：单机模式下 ZhaoCloud.start() 直接返回，无需等待登录。
+        // 线上模式需先完成玩家身份确认和存档合并，再启动游戏。
         (async function bootAfterCloudLogin() {
             function loadScript(src) {
                 return new Promise(function (resolve, reject) {
@@ -203,6 +209,7 @@
                 await loadScript('game.js?v=cloud1');
                 await loadScript('input-fix.js?v=cheat6');
                 await loadScript('unlock-features.js?v=cheat7');
+                await loadScript('gm-panel.js?v=gm1');
                 window.ZhaoCloud.onGameLoaded();
                 window.ZhaoPvp.onGameLoaded();
             } catch (error) {
