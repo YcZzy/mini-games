@@ -216,6 +216,13 @@
         return !!(Laya && Laya.stage && findSceneByUrl(Laya.stage, 'scene/MainScene.ls'));
     }
 
+    function isInGame() {
+        var Laya = window.Laya;
+        if (!Laya || !Laya.stage) return false;
+        return !!(findSceneByUrl(Laya.stage, 'scene/BattleScene.ls') ||
+                  findSceneByUrl(Laya.stage, 'scene/MatchScene.ls'));
+    }
+
     function ensureEntryButton() {
         var button = document.getElementById('zhao-pvp-entry');
         if (!button) {
@@ -227,7 +234,13 @@
             shell().appendChild(button);
         }
         var cloudState = window.ZhaoCloud.getState();
-        button.hidden = !!roomCodeFromUrl() || !isMainSceneVisible() || !cloudState.hasToken;
+        var inRoom = !!roomCodeFromUrl();
+        // 好友对战房间中：始终显示
+        // 单机战斗中：隐藏
+        // 主界面：有 token 时显示
+        button.hidden = inRoom
+            ? false
+            : (isInGame() || !isMainSceneVisible() || !cloudState.hasToken);
     }
 
     function inviteUrl(code) {
