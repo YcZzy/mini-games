@@ -456,36 +456,42 @@
         function bindSkillGrid(gridId, maxCount) {
             var grid = document.getElementById(gridId);
             if (!grid) return;
+            function refreshStates() {
+                var cbs = grid.querySelectorAll('input[type="checkbox"]');
+                var checkedCount = 0;
+                cbs.forEach(function (cb) { if (cb.checked) checkedCount++; });
+                var atLimit = checkedCount >= maxCount;
+                cbs.forEach(function (cb) {
+                    var lbl = cb.parentElement;
+                    if (cb.checked) {
+                        lbl.classList.add('is-on');
+                        lbl.classList.remove('disabled');
+                        cb.disabled = false;
+                    } else {
+                        lbl.classList.remove('is-on');
+                        if (atLimit) {
+                            lbl.classList.add('disabled');
+                            cb.disabled = true;
+                        } else {
+                            lbl.classList.remove('disabled');
+                            cb.disabled = false;
+                        }
+                    }
+                });
+            }
             grid.addEventListener('change', function (e) {
                 var target = e.target;
                 if (target.type !== 'checkbox') return;
                 var cbs = grid.querySelectorAll('input[type="checkbox"]');
-                var checked = [];
-                cbs.forEach(function (cb) { if (cb.checked) checked.push(cb); });
-                if (checked.length > maxCount) {
+                var checkedCount = 0;
+                cbs.forEach(function (cb) { if (cb.checked) checkedCount++; });
+                if (checkedCount > maxCount) {
                     target.checked = false;
                     showToast('最多选择 ' + maxCount + ' 个技能');
-                    return;
                 }
-                cbs.forEach(function (cb) {
-                    var lbl = cb.parentElement;
-                    if (cb.checked) { lbl.classList.add('is-on'); lbl.classList.remove('disabled'); }
-                    else {
-                        lbl.classList.remove('is-on');
-                        if (checked.length >= maxCount) lbl.classList.add('disabled');
-                        else lbl.classList.remove('disabled');
-                    }
-                });
+                refreshStates();
             });
-            // 初始化 disabled
-            (function () {
-                var cbs = grid.querySelectorAll('input[type="checkbox"]');
-                var n = 0;
-                cbs.forEach(function (cb) { if (cb.checked) n++; });
-                if (n >= maxCount) {
-                    cbs.forEach(function (cb) { if (!cb.checked) cb.parentElement.classList.add('disabled'); });
-                }
-            })();
+            refreshStates();
         }
         bindSkillGrid('gm-active-skills', 2);
         bindSkillGrid('gm-passive-skills', 6);
