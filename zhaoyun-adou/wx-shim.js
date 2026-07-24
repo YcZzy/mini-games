@@ -97,7 +97,9 @@
         return {
             platform: 'devtools',
             model: 'iPhone',
-            pixelRatio: window.devicePixelRatio || 2,
+            // iOS Safari WebGL 性能：限制像素比避免 canvas 内部分辨率过高
+            // iPhone 14 Pro 的 3x → 1179×2556 像素/帧，移动端 GPU 压力大
+            pixelRatio: Math.min(window.devicePixelRatio || 2, 2),
             screenWidth: vp.width,
             screenHeight: vp.height,
             windowWidth: vp.width,
@@ -136,7 +138,10 @@
         // Laya 会把主画布 id 改为 layaCanvas（注意大小写）；同时保留 layaMainCanvas 兼容。
         // absolute 相对 #phone-shell 铺满，而不是整页 100vw/100vh。
         '#layaMainCanvas,#layaCanvas{position:absolute!important;left:0!important;top:0!important;',
-        'width:100%!important;height:100%!important;display:block!important;touch-action:none!important;outline:none!important;}',
+        'width:100%!important;height:100%!important;display:block!important;touch-action:none!important;outline:none!important;',
+        // GPU 合成优化：强制 canvas 提升为独立合成层，避免 iOS Safari 每帧重绘
+        'transform:translateZ(0)!important;-webkit-transform:translateZ(0)!important;',
+        'will-change:transform!important;}',
         'canvas{touch-action:none;}'
     ].join('');
     _real.head.appendChild(_style);

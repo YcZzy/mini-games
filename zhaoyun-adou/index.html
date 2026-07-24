@@ -145,7 +145,8 @@
                 var L = window.Laya;
                 if (!L || !L.stage) return;
                 try {
-                    var pixelRatio = (L.Browser && L.Browser.pixelRatio) || window.devicePixelRatio || 1;
+                    // iOS: 限制像素比 ≤2，减少 canvas 填充率
+                    var pixelRatio = Math.min((L.Browser && L.Browser.pixelRatio) || window.devicePixelRatio || 1, 2);
                     if (L.Browser) {
                         L.Browser.clientWidth = width;
                         L.Browser.clientHeight = height;
