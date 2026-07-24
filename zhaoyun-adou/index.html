@@ -85,6 +85,7 @@
                 max-height: none;
                 border-radius: 0;
                 box-shadow: none;
+                /* iOS: 移除 will-change 等可能触发额外合成的属性 */
             }
             #phone-shell::before { display: none; }
         }
@@ -117,11 +118,18 @@
         });
         // 手机浏览器地址栏 / Fullscreen 会改变可见视口高度；用 visualViewport 同步真实可见尺寸，避免左右黑边。
         // 同时强制同步 Laya stage 尺寸，否则进入全屏后 CSS 画布变高，但 stage 仍停留在旧高度，底部按钮会点不到。
+        //
+        // iOS 性能优化：visualViewport.resize/scroll 在 iOS Safari 上每帧都触发，
+        // 通过 rAF 节流（每帧最多一次）+ setScreenSize 防抖（300ms 内尺寸不变才同步）
+        // 避免频繁触发 WebGL canvas resize 导致卡顿。
         (function syncVisibleViewport() {
             var root = document.documentElement;
             var lastWidth = 0;
             var lastHeight = 0;
-            var syncTimer = 0;
+            var rafPending = false;
+            var stageSyncTimer = 0;
+            var STAGE_SYNC_DELAY = 300; // setScreenSize 防抖延迟
+
             function isMobileLayout() {
                 return window.matchMedia && window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
             }
@@ -138,7 +146,6 @@
                 if (!L || !L.stage) return;
                 try {
                     var pixelRatio = (L.Browser && L.Browser.pixelRatio) || window.devicePixelRatio || 1;
-                    // Laya 的 Browser.clientHeight 在 Android Chrome 地址栏/Fullscreen 变化时可能还是旧值；先覆盖，避免后续 updateCanvasSize 回退。
                     if (L.Browser) {
                         L.Browser.clientWidth = width;
                         L.Browser.clientHeight = height;
@@ -151,28 +158,56 @@
             function apply() {
                 var size = currentSize();
                 if (size.width <= 0 || size.height <= 0) return;
+                var cssChanged = (size.width !== lastWidth || size.height !== lastHeight);
+                lastWidth = size.width;
+                lastHeight = size.height;
+
+                // CSS 变量更新：轻量操作，立刻执行
+                if (cssChanged) {
+                    root.style.setProperty('--app-width', size.width + 'px');
+                    root.style.setProperty('--app-height', size.height + 'px');
+                }
+
+                // setScreenSize 防抖：只有尺寸稳定 300ms 后才同步 stage
+                // iOS 上地址栏收缩过程中尺寸连续变化，延迟到稳定后再 resize canvas
+                clearTimeout(stageSyncTimer);
+                stageSyncTimer = setTimeout(function () {
+                    syncLayaStage(size.width, size.height);
+                }, STAGE_SYNC_DELAY);
+            }
+
+            // rAF 节流：每帧最多执行一次 apply（iOS visualViewport 事件高频触发）
+            function scheduleApply() {
+                if (rafPending) return;
+                rafPending = true;
+                requestAnimationFrame(function () {
+                    rafPending = false;
+                    apply();
+                });
+            }
+
+            window.__syncGameViewport = function () {
+                rafPending = false;
+                var size = currentSize();
+                if (size.width <= 0 || size.height <= 0) return;
                 lastWidth = size.width;
                 lastHeight = size.height;
                 root.style.setProperty('--app-width', size.width + 'px');
                 root.style.setProperty('--app-height', size.height + 'px');
+                clearTimeout(stageSyncTimer);
                 syncLayaStage(size.width, size.height);
-                clearTimeout(syncTimer);
-                syncTimer = setTimeout(function () { syncLayaStage(lastWidth, lastHeight); }, 120);
-            }
-            window.__syncGameViewport = apply;
+            };
+
+            // 首次立即执行
             apply();
-            var readyTimer = setInterval(function () {
-                apply();
-                if (window.Laya && window.Laya.stage) clearInterval(readyTimer);
-            }, 100);
-            setTimeout(function () { clearInterval(readyTimer); }, 10000);
-            window.addEventListener('resize', apply, { passive: true });
-            window.addEventListener('fullscreenchange', apply, { passive: true });
-            window.addEventListener('webkitfullscreenchange', apply, { passive: true });
-            window.addEventListener('orientationchange', function () { setTimeout(apply, 50); setTimeout(apply, 300); }, { passive: true });
+
+            window.addEventListener('resize', scheduleApply, { passive: true });
+            window.addEventListener('fullscreenchange', scheduleApply, { passive: true });
+            window.addEventListener('webkitfullscreenchange', scheduleApply, { passive: true });
+            window.addEventListener('orientationchange', function () { setTimeout(scheduleApply, 50); setTimeout(scheduleApply, 300); }, { passive: true });
             if (window.visualViewport) {
-                window.visualViewport.addEventListener('resize', apply, { passive: true });
-                window.visualViewport.addEventListener('scroll', apply, { passive: true });
+                window.visualViewport.addEventListener('resize', scheduleApply, { passive: true });
+                window.visualViewport.addEventListener('scroll', scheduleApply, { passive: true });
             }
         })();
 
