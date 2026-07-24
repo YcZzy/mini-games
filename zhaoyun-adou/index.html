@@ -128,6 +128,8 @@
             var lastHeight = 0;
             var rafPending = false;
             var stageSyncTimer = 0;
+            var lastStageWidth = 0;
+            var lastStageHeight = 0;
             var STAGE_SYNC_DELAY = 300; // setScreenSize 防抖延迟
 
             function isMobileLayout() {
@@ -144,16 +146,22 @@
                 if (!isMobileLayout()) return;
                 var L = window.Laya;
                 if (!L || !L.stage) return;
+                // iOS: 限制像素比 ≤2，减少 canvas 填充率
+                var pixelRatio = Math.min((L.Browser && L.Browser.pixelRatio) || window.devicePixelRatio || 1, 2);
+                var sw = Math.round(width * pixelRatio);
+                var sh = Math.round(height * pixelRatio);
+                // 只有实际分辨率变化时才调用 setScreenSize（避免无意义的 canvas resize）
+                if (sw === lastStageWidth && sh === lastStageHeight) return;
+                lastStageWidth = sw;
+                lastStageHeight = sh;
                 try {
-                    // iOS: 限制像素比 ≤2，减少 canvas 填充率
-                    var pixelRatio = Math.min((L.Browser && L.Browser.pixelRatio) || window.devicePixelRatio || 1, 2);
                     if (L.Browser) {
                         L.Browser.clientWidth = width;
                         L.Browser.clientHeight = height;
-                        L.Browser.width = Math.round(width * pixelRatio);
-                        L.Browser.height = Math.round(height * pixelRatio);
+                        L.Browser.width = sw;
+                        L.Browser.height = sh;
                     }
-                    L.stage.setScreenSize(Math.round(width * pixelRatio), Math.round(height * pixelRatio));
+                    L.stage.setScreenSize(sw, sh);
                 } catch (e) {}
             }
             function apply() {
@@ -189,6 +197,7 @@
 
             window.__syncGameViewport = function () {
                 rafPending = false;
+                lastStageWidth = 0; lastStageHeight = 0; // 强制立即同步
                 var size = currentSize();
                 if (size.width <= 0 || size.height <= 0) return;
                 lastWidth = size.width;
