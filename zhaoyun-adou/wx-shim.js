@@ -15,7 +15,7 @@
 
     // 捕获浏览器原生构造/方法。weapp-adapter（platform='devtools' 分支）会用
     // defineProperty 覆盖 document.createElement / window.Image / window.Audio 等
-    // 为“调用 wx.*”的版本。若本垫片再用全局 `document.createElement('canvas')` 或
+    // 为”调用 wx.*”的版本。若本垫片再用全局 `document.createElement('canvas')` 或
     // `new Image()`，会形成 adapter→wx.createCanvas→document.createElement('canvas')
     // 的无限递归。因此一律使用这里捕获的原生引用。
     var _real = {
@@ -29,6 +29,21 @@
         body: document.body,
         head: document.head
     };
+
+    // iOS WebGL 性能优化：拦截 getContext，对 WebGL 上下文强制关闭抗锯齿 + 请求高性能 GPU
+    (function patchGetContext() {
+        var _origGetContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (type, attrs) {
+            if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+                attrs = Object.assign({}, attrs || {}, {
+                    antialias: false,
+                    powerPreference: 'high-performance'
+                });
+                console.log('[wx-shim] WebGL context:', type, 'antialias=false, powerPreference=high-performance');
+            }
+            return _origGetContext.call(this, type, attrs);
+        };
+    })();
 
     // 捕获 HTMLCanvasElement.prototype 的真实父原型链。
     // weapp-adapter 的 Canvas() 会执行 `canvas.__proto__.__proto__ = new HTMLElement('canvas')`，
